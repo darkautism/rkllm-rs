@@ -7,3 +7,6 @@ license-file = "License"
 
 [build-dependencies]
 bindgen = "0.71.0"
+
+[dependencies]
+argv = "0.1.11"
