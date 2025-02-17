@@ -20,6 +20,8 @@
 ```sh
 export LD_LIBRARY_PATH=/path/to/your/library:$LD_LIBRARY_PATH
 
+```
+
 ## 安裝
 
 在你的cargo.toml加入
