@@ -70,22 +70,29 @@ pub mod prelude {
         }
     }
 
-    #[derive(Debug)]
+    #[doc = " @struct RKLLMResult\n @brief Structure to represent the result of LLM inference."]
+    #[derive(Debug, Clone)]
     pub struct RKLLMResult {
+        #[doc = "< Generated text result."]
         pub text: String,
+        #[doc = "< ID of the generated token."]
         pub token_id: i32,
+        #[doc = "< Hidden states of the last layer (if requested)."]
         pub last_hidden_layer: RKLLMResultLastHiddenLayer,
     }
 
+    #[doc = " @struct LLMHandle\n @brief LLMHandle."]
     pub struct LLMHandle {
         handle: super::LLMHandle,
     }
 
     impl LLMHandle {
-        pub fn destroy(&self) {
-            unsafe { super::rkllm_destroy(self.handle) };
+        #[doc = " @brief Destroys the LLM instance and releases resources.\n @param handle LLM handle.\n @return Status code (0 for success, non-zero for failure)."]
+        pub fn destroy(&self) -> i32 {
+            unsafe { super::rkllm_destroy(self.handle) }
         }
 
+        #[doc = " @brief Runs an LLM inference task asynchronously.\n @param handle LLM handle.\n @param rkllm_input Input data for the LLM.\n @param rkllm_infer_params Parameters for the inference task.\n @param userdata Pointer to user data for the callback.\n @return Status code (0 for success, non-zero for failure)."]
         pub fn run(
             &self,
             rkllm_input: RKLLMInput,
@@ -147,6 +154,7 @@ pub mod prelude {
             unsafe { super::rkllm_run(self.handle, &mut input, new_rkllm_infer_params, userdata) };
         }
 
+        #[doc = " @brief Loads a prompt cache from a file.\n @param handle LLM handle.\n @param prompt_cache_path Path to the prompt cache file.\n @return Status code (0 for success, non-zero for failure)."]
         pub fn load_prompt_cache(&self, cache_path: &str) {
             let prompt_cache_path = std::ffi::CString::new(cache_path).unwrap();
             let prompt_cache_path_ptr = prompt_cache_path.as_ptr();
@@ -193,6 +201,7 @@ pub mod prelude {
         }
     }
 
+    #[doc = " @brief Initializes the LLM with the given parameters.\n @param handle Pointer to the LLM handle.\n @param param Configuration parameters for the LLM.\n @param callback Callback function to handle LLM results.\n @return Status code (0 for success, non-zero for failure)."]
     pub fn rkllm_init(
         param: *mut super::RKLLMParam,
         callback: rkllm_callback,
@@ -217,9 +226,13 @@ pub mod prelude {
     }
 
     pub enum RKLLMInput {
+        #[doc = "< Input is a text prompt."]
         Prompt(String),
+        #[doc = "< Input is a sequence of tokens."]
         Token(String),
+        #[doc = "< Input is an embedding vector."]
         Embed(String),
+        #[doc = "< Input is multimodal (e.g., text and image)."]
         Multimodal(String),
     }
 }

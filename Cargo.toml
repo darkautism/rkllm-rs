@@ -1,12 +1,31 @@
 [package]
 name = "rkllm-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "rkllm rust ffi binding"
 license-file = "License"
 
+[features]
+default = []
+bin = ["clap"]
+
+[dependencies.argv]
+version = "0.1.11"
+optional = true
+
+[dependencies.clap]
+version = "4.5.30"
+optional = true
+
 [build-dependencies]
 bindgen = "0.71.0"
 
-[dependencies]
-argv = "0.1.11"
+[[bin]]
+name = "rkllm"
+path = "src/main.rs"
+required-features = ["clap"]
+
+[[example]]
+name = "demo"
+path = "examples/demo.rs"
+required-features = ["argv"]
