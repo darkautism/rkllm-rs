@@ -57,14 +57,13 @@ fn main() {
     let rkllm_infer_params = RKLLMInferParam {
         mode: RKLLMInferMode::InferGenerate,
         lora_params: None,
-        prompt_cache_params: None,
-        // prompt_cache_params: Some(RKLLMPromptCacheParam {
-        //     save_prompt_cache: true,
-        //     prompt_cache_path: cache_path.to_owned(),
-        // }),
+        prompt_cache_params: Some(RKLLMPromptCacheParam {
+            save_prompt_cache: true,
+            prompt_cache_path: cache_path.to_owned(),
+        }),
     };
 
-    //llm_handle.load_prompt_cache(cache_path);
+    llm_handle.load_prompt_cache(cache_path);
 
     loop {
         print!("Say something: ");

@@ -144,12 +144,7 @@ pub mod prelude {
                     null_mut()
                 };
 
-            print!(
-                "\nsuper::rkllm_run: {:?}, {:?}\n",
-                self.handle, new_rkllm_infer_params
-            );
             unsafe { super::rkllm_run(self.handle, &mut input, new_rkllm_infer_params, userdata) };
-            print!("\nend::rkllm_run: \n");
         }
 
         pub fn load_prompt_cache(&self, cache_path: &str) {
@@ -214,8 +209,6 @@ pub mod prelude {
             ),
         > = Some(callback_passtrough);
         let ret = unsafe { super::rkllm_init(&mut handle.handle, param, callback) };
-
-        print!("rkllm_init: {:?} \n", handle.handle);
         if ret == 0 {
             return Ok(handle);
         } else {
