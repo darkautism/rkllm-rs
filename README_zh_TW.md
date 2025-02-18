@@ -1,50 +1,52 @@
 # rkllm-rs
 
-`rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
+`rkllm-rs` 是一個使用 Rust FFI 包裝 `librkllmrt` 的函式庫。
 
 ## README.md
 
 - en [English](README.md)
 - zh_TW [繁體中文](readme/README.zh_TW.md)
 
-## System Requirements
+## 系統需求
 
-Before using `rkllm-rs`, you need to install `librkllmrt`. Please download and install from the following link:
+在使用 `rkllm-rs` 之前，需要先安裝 `librkllmrt`。請從以下鏈接下載並安裝：
 
-[Download librkllmrt.so](https://github.com/airockchip/rknn-llm/raw/refs/heads/main/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so)
+[下載 librkllmrt.so](https://github.com/airockchip/rknn-llm/raw/refs/heads/main/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so)
 
-Please install `librkllmrt.so` in one of the common Linux library paths:
+請將 `librkllmrt.so` 安裝至以下的常見 Linux 函式庫路徑之一：
 
 - `/usr/lib`
 - `/lib`
 - `/usr/local/lib`
 - `/opt/lib`
 
-Alternatively, you can use the `LD_LIBRARY_PATH` environment variable to specify the library path. For example:
+或者您可以使用 `LD_LIBRARY_PATH` 環境變數來指定函式庫路徑。例如：
 
 ```sh
 export LD_LIBRARY_PATH=/path/to/your/library:$LD_LIBRARY_PATH
+
 ```
 
-The model used in this example can be found [here](https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-7B-RK3588S-RKLLM1.1.4)
+本例使用的模型[在此](https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-7B-RK3588S-RKLLM1.1.4)
 
-For devices with less memory, you can use [this model](https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4)
+對於記憶體比較小的板子，可以改使用[這個](https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4)
 
-## Installation
+## 安裝
 
 ### Install Rust
 
-First, install Rust, or refer to [this guide](https://www.rust-lang.org/tools/install)
+不管怎麼樣先安裝rust，或者[參考](https://www.rust-lang.org/tools/install)
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### Lazy Way
+### 懶
 
 ```
-# If you already installed git-lfs, skip this step
-sudo apt install git-lfs
+# If you already installed git-lfs, skip this steps
+sudo apt install gitlfs
+
 
 sudo curl -L https://github.com/airockchip/rknn-llm/raw/refs/heads/main/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so -o /usr/lib/librkllmrt.so
 cargo install rkllm-rs --features bin
@@ -52,7 +54,7 @@ git clone https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S
 rkllm ./DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4/deepseek-r1-1.5B-rkllm1.1.4.rkllm --model_type=deepseek
 ```
 
-You should now see the LLM start up:
+這樣你就能看到llm啟動了
 
 ```
 I rkllm: rkllm-runtime version: 1.1.4, rknpu driver version: 0.9.7, platform: RK3588
@@ -69,25 +71,27 @@ Hello! How can I assist you today? 😊
 Say something:
 ```
 
-### Using as a Library
+### 以library使用
 
-Add the following to your `Cargo.toml`:
+在你的cargo.toml加入
 
 ```
+
 [dependencies]
 rkllm-rs = "0.1.0"
+
 ```
 
-### Using as a Binary
+### 以binary使用
 
-`rkllm-rs` also supports running as a binary, suitable for users who do not plan to do further development or prefer an out-of-the-box experience.
+rkllm-rs也支持以binary方式啟動，適合不打算進行二次開發或者打算開箱即用的使用者
 
 ```
 cargo install rkllm-rs --features bin
 rkllm ~/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4/deepseek-r1-1.5B-rkllm1.1.4.rkllm --model_type=deepseek
 ```
 
-Here is the help for the tool, with various parameters set according to the help:
+這是工具的help，各種參數依照help設定
 
 ```
 Usage: rkllm [OPTIONS] [model]
@@ -97,7 +101,7 @@ Arguments:
 
 Options:
       --model_type <model_type>
-          Some module have special prefix in prompt, use this to fix [possible values: normal, deepseek]
+          some module have special prefix in prompt, use this to fix [possible values: normal, deepseek]
   -c, --context_len <max_context_len>
           Maximum number of tokens in the context window
   -n, --new_tokens <max_new_tokens>
