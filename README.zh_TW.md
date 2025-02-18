@@ -5,7 +5,7 @@
 ## README.md
 
 - en [English](README.md)
-- zh_TW [繁體中文](readme/README.zh_TW.md)
+- zh_TW [繁體中文](README.zh_TW.md)
 
 ## 系統需求
 
