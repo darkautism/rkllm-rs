@@ -1,8 +1,13 @@
 use clap::builder::PossibleValue;
-use clap::{value_parser, Arg, ArgAction, Command, ValueEnum};
+use clap::{Arg, ArgAction, Command, ValueEnum};
 use rkllm_rs::prelude::*;
 use std::io;
 use std::io::Write;
+
+#[cfg(feature="online_config")]
+use autotokenizer::AutoTokenizer;
+#[cfg(feature="online_config")]
+use autotokenizer::DefaultPromptMessage;
 
 fn callback(
     result: Option<RKLLMResult>,
@@ -68,7 +73,7 @@ impl std::str::FromStr for ModelType {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let matches = Command::new("rkllm")
         .about("llm runner for rockchip")
@@ -84,7 +89,8 @@ fn main() {
             Arg::new("model_type")
                 .long("model_type")
                 .help("some module have special prefix in prompt, use this to fix")
-                .value_parser(value_parser!(ModelType)),
+                .action(ArgAction::Set)
+                .num_args(1),
         )
         .arg(
             Arg::new("max_context_len")
@@ -173,9 +179,22 @@ fn main() {
     let model_path;
     let model_path_ptr;
     let mut modeltype = ModelType::Normal;
+    #[cfg(feature="online_config")]
+    let mut atoken = None;
 
-    if let Some(value) = matches.get_one::<ModelType>("model_type") {
-        modeltype = *value;
+    if let Some(value) = matches.get_one::<String>("model_type") {
+        #[cfg(not(feature="online_config"))]
+        {
+            if value == "deepseek" {
+                modeltype = ModelType::DeepSeek;
+            }
+        }
+        #[cfg(feature="online_config")]
+        {
+            if let Ok(_atoken) = AutoTokenizer::from_pretrained(value.clone(), None) {
+                atoken = Some(_atoken);
+            };
+        }
     }
 
     if let Some(value) = matches.get_one::<String>("model") {
@@ -214,10 +233,7 @@ fn main() {
         param.skip_special_token = true;
     }
 
-    let Ok(llm_handle) = rkllm_init(&mut param, callback) else {
-        panic!("Init rkllm failed.");
-    };
-    print!("rkllm init success\n");
+    let llm_handle = rkllm_init(&mut param, callback)?;
 
     let rkllm_infer_params = RKLLMInferParam {
         mode: RKLLMInferMode::InferGenerate,
@@ -253,6 +269,25 @@ fn main() {
                     format!("<｜begin▁of▁sentence｜><｜User｜>{}<｜Assistant｜>", input)
                 }
             };
+            #[cfg(feature="online_config")]
+            {
+                // 定義對話上下文
+                let ctx = vec![
+                    DefaultPromptMessage::new("system", "You are a smart speaker, please help users with questions."),
+                    DefaultPromptMessage::new("user", &input ),
+                ];
+
+                if let Some(ref real_atoken) = atoken {
+                    if let Ok(parsed) = real_atoken.apply_chat_template(ctx, false) {
+                        input = parsed;
+                    } else {
+                        println!("apply_chat_template failed.");
+                    };
+                }
+            }
+            // For AutoTokenizer debug
+            // println!("{}", input);
+
             print!("\nRobot: \n");
             llm_handle.run(
                 RKLLMInput::Prompt(input),
@@ -263,4 +298,5 @@ fn main() {
     }
 
     llm_handle.destroy();
+    Ok(())
 }

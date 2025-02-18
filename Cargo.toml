@@ -8,6 +8,11 @@ license-file = "License"
 [features]
 default = []
 bin = ["clap"]
+online_config = ["autotokenizer"]
+
+[dependencies.autotokenizer]
+version = "0.1.1"
+optional = true
 
 [dependencies.clap]
 version = "4.5.30"

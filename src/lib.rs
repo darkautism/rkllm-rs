@@ -6,6 +6,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 pub mod prelude {
 
+    use core::fmt;
+    use std::error::Error;
     use std::ffi::CStr;
     use std::ptr::null_mut;
 
@@ -205,7 +207,7 @@ pub mod prelude {
     pub fn rkllm_init(
         param: *mut super::RKLLMParam,
         callback: rkllm_callback,
-    ) -> Result<LLMHandle, i32> {
+    ) -> Result<LLMHandle, Box<dyn std::error::Error>> {
         let mut handle = LLMHandle {
             handle: std::ptr::null_mut(),
         };
@@ -221,7 +223,10 @@ pub mod prelude {
         if ret == 0 {
             return Ok(handle);
         } else {
-            return Err(ret);
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("rkllm_init ret non zero: {}", ret),
+            )));
         }
     }
 

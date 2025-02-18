@@ -127,3 +127,20 @@ Options:
   -V, --version
           Print version
 ```
+
+## Online Tokenizer Config
+
+目前本地的模型類別都是由hardcode在程式碼內的，沒有支援的模型，並不會正確的生成bos_token和assistant提示詞。大多數模型在沒有遇到正確提示詞時會發生錯亂，例如答非所問，自問自答(好吧，其實提供了他還是在自問自答)。
+
+目前大多數的模型皆在線上放置了tokenizer_config.json，讀取該配置可以生成正確的提示詞
+
+你可以自己通過拼湊tokenizer_config.json來生成提示詞，或者使用python的AutoTokenizer生成。
+
+目前該庫提供了一種方法可以自動從線上抓取對應模型的tokenizer_config.json
+
+```
+cargo install rkllm-rs  --features "bin, online_config"
+rkllm ~/Tinnyllama-1.1B-rk3588-rkllm-1.1.4/TinyLlama-1.1B-Chat-v1.0-rk3588-w8a8-opt-0-hybrid-ratio-0.5.rkllm --model_type=TinyLlama/TinyLlama-1.1B-Chat-v1.0
+```
+
+這樣工具就會從線上抓取TinyLlama的tokenizer_config.json，並嘗試修正prompt

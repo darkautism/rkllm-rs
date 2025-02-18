@@ -123,3 +123,20 @@ Options:
   -V, --version
           Print version
 ```
+
+## Online Tokenizer Config
+
+Currently, the model types are hardcoded in the program, and unsupported models will not correctly generate `bos_token` and assistant prompts. Most models will produce incorrect responses without the correct prompts, such as irrelevant answers or self-dialogue (though, to be fair, they might still engage in self-dialogue even with the prompts).
+
+Most models have `tokenizer_config.json` available online. Reading this configuration file can generate the correct prompts.
+
+You can manually create the prompt using `tokenizer_config.json` or use Python's AutoTokenizer to generate it.
+
+This library provides a method to automatically fetch the corresponding model's `tokenizer_config.json` from online sources.
+
+```
+cargo install rkllm-rs --features "bin, online_config"
+rkllm ~/Tinnyllama-1.1B-rk3588-rkllm-1.1.4/TinyLlama-1.1B-Chat-v1.0-rk3588-w8a8-opt-0-hybrid-ratio-0.5.rkllm --model_type=TinyLlama/TinyLlama-1.1B-Chat-v1.0
+```
+
+This tool will fetch the `tokenizer_config.json` for TinyLlama online and attempt to correct the prompts.
