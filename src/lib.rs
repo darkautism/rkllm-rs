@@ -5,19 +5,14 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 pub mod prelude {
-
-    use core::fmt;
-    use std::error::Error;
     use std::ffi::CStr;
     use std::ptr::null_mut;
+    use std::sync::Arc;
 
     pub use super::RKLLMExtendParam;
     pub use super::RKLLMLoraParam;
     pub use super::RKLLMParam;
     pub use super::RKLLMResultLastHiddenLayer;
-
-    type rkllm_callback =
-        fn(result: Option<RKLLMResult>, userdata: *mut ::std::os::raw::c_void, state: LLMCallState);
 
     #[derive(Debug, PartialEq, Eq)]
     pub enum LLMCallState {
@@ -34,7 +29,7 @@ pub mod prelude {
     }
 
     #[doc = " @struct RKLLMInferParam\n @brief Structure for defining parameters during inference."]
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     pub struct RKLLMInferParam {
         #[doc = "< Inference mode (e.g., generate or get last hidden layer)."]
         pub mode: RKLLMInferMode,
@@ -44,9 +39,10 @@ pub mod prelude {
         pub prompt_cache_params: Option<RKLLMPromptCacheParam>,
     }
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Default)]
     pub enum RKLLMInferMode {
         #[doc = "< The LLM generates text based on input."]
+        #[default]
         InferGenerate = 0,
         #[doc = "< The LLM retrieves the last hidden layer for further processing."]
         InferGetLastHiddenLayer = 1,
@@ -84,8 +80,20 @@ pub mod prelude {
     }
 
     #[doc = " @struct LLMHandle\n @brief LLMHandle."]
+    #[derive(Clone)]
     pub struct LLMHandle {
         handle: super::LLMHandle,
+    }
+
+    unsafe impl Send for LLMHandle {} // Asserts the pointer is safe to send
+    unsafe impl Sync for LLMHandle {} // Asserts the pointer is safe to share
+
+    pub trait RkllmCallbackHandler {
+        fn handle(&self, result: Option<RKLLMResult>, state: LLMCallState);
+    }
+
+    pub struct InstanceData {
+        pub callback_handler: Arc<dyn RkllmCallbackHandler + Send + Sync>,
     }
 
     impl LLMHandle {
@@ -95,12 +103,17 @@ pub mod prelude {
         }
 
         #[doc = " @brief Runs an LLM inference task asynchronously.\n @param handle LLM handle.\n @param rkllm_input Input data for the LLM.\n @param rkllm_infer_params Parameters for the inference task.\n @param userdata Pointer to user data for the callback.\n @return Status code (0 for success, non-zero for failure)."]
-        pub fn run(
+        pub fn run<T: RkllmCallbackHandler + Send + Sync + 'static>(
             &self,
             rkllm_input: RKLLMInput,
             rkllm_infer_params: Option<RKLLMInferParam>,
-            userdata: *mut ::std::os::raw::c_void,
+            user_data: impl RkllmCallbackHandler + Send + Sync + 'static,
         ) {
+            let instance_data = Arc::new(InstanceData {
+                callback_handler: Arc::new(user_data),
+            });
+
+            let userdata_ptr = Arc::into_raw(instance_data) as *mut std::ffi::c_void;
             let prompt_cstring;
             let prompt_cstring_ptr;
             let mut input = match rkllm_input {
@@ -153,7 +166,14 @@ pub mod prelude {
                     null_mut()
                 };
 
-            unsafe { super::rkllm_run(self.handle, &mut input, new_rkllm_infer_params, userdata) };
+            unsafe {
+                super::rkllm_run(
+                    self.handle,
+                    &mut input,
+                    new_rkllm_infer_params,
+                    userdata_ptr,
+                )
+            };
         }
 
         #[doc = " @brief Loads a prompt cache from a file.\n @param handle LLM handle.\n @param prompt_cache_path Path to the prompt cache file.\n @return Status code (0 for success, non-zero for failure)."]
@@ -164,13 +184,13 @@ pub mod prelude {
         }
     }
 
-    static mut CALLBACK: Option<rkllm_callback> = None;
-
     unsafe extern "C" fn callback_passtrough(
         result: *mut super::RKLLMResult,
         userdata: *mut ::std::os::raw::c_void,
         state: super::LLMCallState,
     ) {
+        Arc::increment_strong_count(userdata); // 我們沒有真的要free掉它
+        let instance_data = unsafe { Arc::from_raw(userdata as *const InstanceData) };
         let new_state = match state {
             0 => LLMCallState::Normal,
             1 => LLMCallState::Waiting,
@@ -198,20 +218,17 @@ pub mod prelude {
             })
         };
 
-        if let Some(callback) = CALLBACK {
-            callback(new_result, userdata, new_state);
-        }
+        instance_data.callback_handler.handle(new_result, new_state);
     }
 
     #[doc = " @brief Initializes the LLM with the given parameters.\n @param handle Pointer to the LLM handle.\n @param param Configuration parameters for the LLM.\n @param callback Callback function to handle LLM results.\n @return Status code (0 for success, non-zero for failure)."]
     pub fn rkllm_init(
         param: *mut super::RKLLMParam,
-        callback: rkllm_callback,
-    ) -> Result<LLMHandle, Box<dyn std::error::Error>> {
+    ) -> Result<LLMHandle, Box<dyn std::error::Error + Send + Sync>> {
         let mut handle = LLMHandle {
             handle: std::ptr::null_mut(),
         };
-        unsafe { CALLBACK = Some(callback) };
+
         let callback: Option<
             unsafe extern "C" fn(
                 *mut super::RKLLMResult,

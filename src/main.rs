@@ -4,30 +4,31 @@ use rkllm_rs::prelude::*;
 use std::io;
 use std::io::Write;
 
-#[cfg(feature="online_config")]
+#[cfg(feature = "online_config")]
 use autotokenizer::AutoTokenizer;
-#[cfg(feature="online_config")]
+#[cfg(feature = "online_config")]
 use autotokenizer::DefaultPromptMessage;
 
-fn callback(
-    result: Option<RKLLMResult>,
-    _userdata: *mut ::std::os::raw::c_void,
-    state: LLMCallState,
-) {
-    match state {
-        LLMCallState::Normal => {
-            print!("{}", result.unwrap().text);
-            io::stdout().flush().expect("Flushing failed");
-        }
-        LLMCallState::Waiting => {}
-        LLMCallState::Finish => {
-            print!("\n");
-        }
-        LLMCallState::Error => {
-            print!("\\run error\n");
-        }
-        LLMCallState::GetLastHiddenLayer => {
-            print!("GetLastHiddenLayer\n");
+struct UserDataWithCallBack {
+    userdata: String,
+}
+impl RkllmCallbackHandler for UserDataWithCallBack {
+    fn handle(&self, result: Option<RKLLMResult>, state: LLMCallState) {
+        match state {
+            LLMCallState::Normal => {
+                print!("{}", result.unwrap().text);
+                io::stdout().flush().expect("Flushing failed");
+            }
+            LLMCallState::Waiting => {}
+            LLMCallState::Finish => {
+                println!("\n{}", self.userdata);
+            }
+            LLMCallState::Error => {
+                print!("\\run error\n");
+            }
+            LLMCallState::GetLastHiddenLayer => {
+                print!("GetLastHiddenLayer\n");
+            }
         }
     }
 }
@@ -73,7 +74,7 @@ impl std::str::FromStr for ModelType {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let matches = Command::new("rkllm")
         .about("llm runner for rockchip")
@@ -179,17 +180,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model_path;
     let model_path_ptr;
     let mut modeltype = ModelType::Normal;
-    #[cfg(feature="online_config")]
+    #[cfg(feature = "online_config")]
     let mut atoken = None;
 
     if let Some(value) = matches.get_one::<String>("model_type") {
-        #[cfg(not(feature="online_config"))]
+        #[cfg(not(feature = "online_config"))]
         {
             if value == "deepseek" {
                 modeltype = ModelType::DeepSeek;
             }
         }
-        #[cfg(feature="online_config")]
+        #[cfg(feature = "online_config")]
         {
             if let Ok(_atoken) = AutoTokenizer::from_pretrained(value.clone(), None) {
                 atoken = Some(_atoken);
@@ -233,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         param.skip_special_token = true;
     }
 
-    let llm_handle = rkllm_init(&mut param, callback)?;
+    let llm_handle = rkllm_init(&mut param)?;
 
     let rkllm_infer_params = RKLLMInferParam {
         mode: RKLLMInferMode::InferGenerate,
@@ -269,12 +270,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     format!("<｜begin▁of▁sentence｜><｜User｜>{}<｜Assistant｜>", input)
                 }
             };
-            #[cfg(feature="online_config")]
+            #[cfg(feature = "online_config")]
             {
                 // 定義對話上下文
                 let ctx = vec![
-                    DefaultPromptMessage::new("system", "You are a smart speaker, please help users with questions."),
-                    DefaultPromptMessage::new("user", &input ),
+                    DefaultPromptMessage::new(
+                        "system",
+                        "You are a smart speaker, please help users with questions.",
+                    ),
+                    DefaultPromptMessage::new("user", &input),
                 ];
 
                 if let Some(ref real_atoken) = atoken {
@@ -289,10 +293,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // println!("{}", input);
 
             print!("\nRobot: \n");
-            llm_handle.run(
+            llm_handle.run::<UserDataWithCallBack>(
                 RKLLMInput::Prompt(input),
                 Some(rkllm_infer_params.clone()),
-                std::ptr::null_mut(),
+                UserDataWithCallBack {
+                    userdata: "This is an example for user pass custom data into callback"
+                        .to_owned(),
+                },
             );
         }
     }

@@ -10,12 +10,15 @@ default = []
 bin = ["clap"]
 online_config = ["autotokenizer"]
 
+[dependencies]
+futures = "0.3.31"
+
 [dependencies.autotokenizer]
 version = "0.1.1"
 optional = true
 
 [dependencies.clap]
-version = "4.5.30"
+version = "4.5.31"
 optional = true
 
 [build-dependencies]
