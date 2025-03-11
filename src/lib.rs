@@ -8,6 +8,7 @@ pub mod prelude {
     use std::ffi::CStr;
     use std::ptr::null_mut;
     use std::sync::Arc;
+    use std::sync::Mutex;
 
     pub use super::RKLLMExtendParam;
     pub use super::RKLLMLoraParam;
@@ -34,7 +35,7 @@ pub mod prelude {
         #[doc = "< Inference mode (e.g., generate or get last hidden layer)."]
         pub mode: RKLLMInferMode,
         #[doc = "< Pointer to Lora adapter parameters."]
-        pub lora_params: Option<*mut RKLLMLoraParam>,
+        pub lora_params: Option<String>,
         #[doc = "< Pointer to prompt cache parameters."]
         pub prompt_cache_params: Option<RKLLMPromptCacheParam>,
     }
@@ -80,7 +81,7 @@ pub mod prelude {
     }
 
     #[doc = " @struct LLMHandle\n @brief LLMHandle."]
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Copy)]
     pub struct LLMHandle {
         handle: super::LLMHandle,
     }
@@ -89,11 +90,11 @@ pub mod prelude {
     unsafe impl Sync for LLMHandle {} // Asserts the pointer is safe to share
 
     pub trait RkllmCallbackHandler {
-        fn handle(&self, result: Option<RKLLMResult>, state: LLMCallState);
+        fn handle(&mut self, result: Option<RKLLMResult>, state: LLMCallState);
     }
 
     pub struct InstanceData {
-        pub callback_handler: Arc<dyn RkllmCallbackHandler + Send + Sync>,
+        pub callback_handler: Arc<Mutex<dyn RkllmCallbackHandler + Send + Sync>>,
     }
 
     impl LLMHandle {
@@ -103,14 +104,14 @@ pub mod prelude {
         }
 
         #[doc = " @brief Runs an LLM inference task asynchronously.\n @param handle LLM handle.\n @param rkllm_input Input data for the LLM.\n @param rkllm_infer_params Parameters for the inference task.\n @param userdata Pointer to user data for the callback.\n @return Status code (0 for success, non-zero for failure)."]
-        pub fn run<T: RkllmCallbackHandler + Send + Sync + 'static>(
+        pub fn run(
             &self,
             rkllm_input: RKLLMInput,
             rkllm_infer_params: Option<RKLLMInferParam>,
             user_data: impl RkllmCallbackHandler + Send + Sync + 'static,
         ) {
             let instance_data = Arc::new(InstanceData {
-                callback_handler: Arc::new(user_data),
+                callback_handler: Arc::new(Mutex::new(user_data)),
             });
 
             let userdata_ptr = Arc::into_raw(instance_data) as *mut std::ffi::c_void;
@@ -135,12 +136,23 @@ pub mod prelude {
             let prompt_cache_cstring;
             let prompt_cache_cstring_ptr;
 
+            let lora_adapter_name;
+            let lora_adapter_name_ptr;
+            let mut loraparam;
+
             let new_rkllm_infer_params: *mut super::RKLLMInferParam =
                 if let Some(rkllm_infer_params) = rkllm_infer_params {
                     &mut super::RKLLMInferParam {
                         mode: rkllm_infer_params.mode.into(),
                         lora_params: match rkllm_infer_params.lora_params {
-                            Some(a) => a,
+                            Some(a) => {
+                                lora_adapter_name = a;
+                                lora_adapter_name_ptr = lora_adapter_name.as_ptr();
+                                loraparam = RKLLMLoraParam{
+                                    lora_adapter_name: lora_adapter_name_ptr
+                                };
+                                &mut loraparam
+                            }
                             None => null_mut(),
                         },
                         prompt_cache_params: if let Some(cache_params) =
@@ -218,7 +230,7 @@ pub mod prelude {
             })
         };
 
-        instance_data.callback_handler.handle(new_result, new_state);
+        instance_data.callback_handler.lock().unwrap().handle(new_result, new_state);
     }
 
     #[doc = " @brief Initializes the LLM with the given parameters.\n @param handle Pointer to the LLM handle.\n @param param Configuration parameters for the LLM.\n @param callback Callback function to handle LLM results.\n @return Status code (0 for success, non-zero for failure)."]

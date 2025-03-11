@@ -13,7 +13,7 @@ struct UserDataWithCallBack {
     userdata: String,
 }
 impl RkllmCallbackHandler for UserDataWithCallBack {
-    fn handle(&self, result: Option<RKLLMResult>, state: LLMCallState) {
+    fn handle(&mut self, result: Option<RKLLMResult>, state: LLMCallState) {
         match state {
             LLMCallState::Normal => {
                 print!("{}", result.unwrap().text);
@@ -293,7 +293,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // println!("{}", input);
 
             print!("\nRobot: \n");
-            llm_handle.run::<UserDataWithCallBack>(
+            llm_handle.run(
                 RKLLMInput::Prompt(input),
                 Some(rkllm_infer_params.clone()),
                 UserDataWithCallBack {
