@@ -1,6 +1,6 @@
 [package]
 name = "rkllm-rs"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "rkllm rust ffi binding"
 license-file = "License"
@@ -18,7 +18,7 @@ version = "0.1.1"
 optional = true
 
 [dependencies.clap]
-version = "4.5.31"
+version = "4.5.32"
 optional = true
 
 [build-dependencies]
