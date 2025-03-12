@@ -200,7 +200,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     if let Some(value) = matches.get_one::<String>("model") {
         model_path = std::ffi::CString::new(value.clone()).unwrap();
-        model_path_ptr = model_path.as_ptr();
+        model_path_ptr = model_path.as_ptr() as *const std::os::raw::c_char;
         param.model_path = model_path_ptr;
     }
     if let Some(value) = matches.get_one::<i32>("max_context_len") {

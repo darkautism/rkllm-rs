@@ -120,7 +120,7 @@ pub mod prelude {
             let mut input = match rkllm_input {
                 RKLLMInput::Prompt(prompt) => {
                     prompt_cstring = std::ffi::CString::new(prompt).unwrap();
-                    prompt_cstring_ptr = prompt_cstring.as_ptr();
+                    prompt_cstring_ptr = prompt_cstring.as_ptr() as *const std::os::raw::c_char;
                     super::RKLLMInput {
                         input_type: super::RKLLMInputType_RKLLM_INPUT_PROMPT,
                         __bindgen_anon_1: super::RKLLMInput__bindgen_ty_1 {
@@ -147,7 +147,7 @@ pub mod prelude {
                         lora_params: match rkllm_infer_params.lora_params {
                             Some(a) => {
                                 lora_adapter_name = a;
-                                lora_adapter_name_ptr = lora_adapter_name.as_ptr();
+                                lora_adapter_name_ptr = lora_adapter_name.as_ptr() as *const std::os::raw::c_char;
                                 loraparam = RKLLMLoraParam{
                                     lora_adapter_name: lora_adapter_name_ptr
                                 };
@@ -160,7 +160,7 @@ pub mod prelude {
                         {
                             prompt_cache_cstring =
                                 std::ffi::CString::new(cache_params.prompt_cache_path).unwrap();
-                            prompt_cache_cstring_ptr = prompt_cache_cstring.as_ptr();
+                            prompt_cache_cstring_ptr = prompt_cache_cstring.as_ptr() as *const std::os::raw::c_char;
 
                             &mut super::RKLLMPromptCacheParam {
                                 save_prompt_cache: if cache_params.save_prompt_cache {
@@ -191,7 +191,7 @@ pub mod prelude {
         #[doc = " @brief Loads a prompt cache from a file.\n @param handle LLM handle.\n @param prompt_cache_path Path to the prompt cache file.\n @return Status code (0 for success, non-zero for failure)."]
         pub fn load_prompt_cache(&self, cache_path: &str) {
             let prompt_cache_path = std::ffi::CString::new(cache_path).unwrap();
-            let prompt_cache_path_ptr = prompt_cache_path.as_ptr();
+            let prompt_cache_path_ptr = prompt_cache_path.as_ptr() as *const std::os::raw::c_char;
             unsafe { super::rkllm_load_prompt_cache(self.handle, prompt_cache_path_ptr) };
         }
     }
