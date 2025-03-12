@@ -282,7 +282,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 ];
 
                 if let Some(ref real_atoken) = atoken {
-                    if let Ok(parsed) = real_atoken.apply_chat_template(ctx, false) {
+                    if let Ok(parsed) = real_atoken.apply_chat_template(ctx, true) {
                         input = parsed;
                     } else {
                         println!("apply_chat_template failed.");
