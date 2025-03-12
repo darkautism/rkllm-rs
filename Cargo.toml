@@ -4,6 +4,8 @@ version = "0.1.6"
 edition = "2021"
 description = "rkllm rust ffi binding"
 license-file = "License"
+homepage = "https://github.com/darkautism/rkllm-rs"
+documentation = "https://docs.rs/crate/rkllm-rs/"
 
 [features]
 default = []

@@ -15,95 +15,115 @@ pub mod prelude {
     pub use super::RKLLMParam;
     pub use super::RKLLMResultLastHiddenLayer;
 
+    /// Represents the state of an LLM call.
     #[derive(Debug, PartialEq, Eq)]
     pub enum LLMCallState {
-        #[doc = "< The LLM call is in a normal running state."]
+        /// The LLM call is in a normal running state.
         Normal = 0,
-        #[doc = "< The LLM call is waiting for complete UTF-8 encoded character."]
+        /// The LLM call is waiting for a complete UTF-8 encoded character.
         Waiting = 1,
-        #[doc = "< The LLM call has finished execution."]
+        /// The LLM call has finished execution.
         Finish = 2,
-        #[doc = "< An error occurred during the LLM call."]
+        /// An error occurred during the LLM call.
         Error = 3,
-        #[doc = "< Retrieve the last hidden layer during inference."]
+        /// Retrieve the last hidden layer during inference.
         GetLastHiddenLayer = 4,
     }
 
-    #[doc = " @struct RKLLMInferParam\n @brief Structure for defining parameters during inference."]
+    /// Structure for defining parameters during inference.
     #[derive(Debug, Clone, Default)]
     pub struct RKLLMInferParam {
-        #[doc = "< Inference mode (e.g., generate or get last hidden layer)."]
+        /// Inference mode, such as generating text or getting the last hidden layer.
         pub mode: RKLLMInferMode,
-        #[doc = "< Pointer to Lora adapter parameters."]
+        /// Optional Lora adapter parameters.
         pub lora_params: Option<String>,
-        #[doc = "< Pointer to prompt cache parameters."]
+        /// Optional prompt cache parameters.
         pub prompt_cache_params: Option<RKLLMPromptCacheParam>,
     }
 
+    /// Defines the inference mode for the LLM.
     #[derive(Debug, Copy, Clone, Default)]
     pub enum RKLLMInferMode {
-        #[doc = "< The LLM generates text based on input."]
+        /// The LLM generates text based on the input. This is the default mode.
         #[default]
         InferGenerate = 0,
-        #[doc = "< The LLM retrieves the last hidden layer for further processing."]
+        /// The LLM retrieves the last hidden layer for further processing.
         InferGetLastHiddenLayer = 1,
     }
+
     impl Into<u32> for RKLLMInferMode {
+        /// Converts the enum variant to its underlying u32 value.
         fn into(self) -> u32 {
             self as u32
         }
     }
 
-    #[doc = " @struct RKLLMPromptCacheParam\n @brief Structure to define parameters for caching prompts."]
+    /// Structure to define parameters for caching prompts.
     #[derive(Debug, Clone)]
     pub struct RKLLMPromptCacheParam {
-        #[doc = "< Flag to indicate whether to save the prompt cache (0 = don't save, 1 = save)."]
+        /// Indicates whether to save the prompt cache. If `true`, the cache is saved.
         pub save_prompt_cache: bool,
-        #[doc = "< Path to the prompt cache file."]
+        /// Path to the prompt cache file.
         pub prompt_cache_path: String,
     }
 
     impl Default for super::RKLLMParam {
+        /// Creates a default `RKLLMParam` by calling the underlying C function.
         fn default() -> Self {
             unsafe { super::rkllm_createDefaultParam() }
         }
     }
 
-    #[doc = " @struct RKLLMResult\n @brief Structure to represent the result of LLM inference."]
+    /// Represents the result of an LLM inference.
     #[derive(Debug, Clone)]
     pub struct RKLLMResult {
-        #[doc = "< Generated text result."]
+        /// The generated text from the LLM.
         pub text: String,
-        #[doc = "< ID of the generated token."]
+        /// The ID of the generated token.
         pub token_id: i32,
-        #[doc = "< Hidden states of the last layer (if requested)."]
+        /// The last hidden layer's states if requested during inference.
         pub last_hidden_layer: RKLLMResultLastHiddenLayer,
     }
 
-    #[doc = " @struct LLMHandle\n @brief LLMHandle."]
+    /// Handle to an LLM instance.
     #[derive(Clone, Debug, Copy)]
     pub struct LLMHandle {
         handle: super::LLMHandle,
     }
 
-    unsafe impl Send for LLMHandle {} // Asserts the pointer is safe to send
-    unsafe impl Sync for LLMHandle {} // Asserts the pointer is safe to share
+    unsafe impl Send for LLMHandle {} // Asserts that the handle is safe to send across threads.
+    unsafe impl Sync for LLMHandle {} // Asserts that the handle is safe to share across threads.
 
+    /// Trait for handling callbacks from LLM operations.
     pub trait RkllmCallbackHandler {
+        /// Handles the result and state of an LLM call.
         fn handle(&mut self, result: Option<RKLLMResult>, state: LLMCallState);
     }
 
+    /// Internal structure to hold the callback handler.
     pub struct InstanceData {
+        /// The callback handler wrapped in `Arc` and `Mutex` for thread safety.
         pub callback_handler: Arc<Mutex<dyn RkllmCallbackHandler + Send + Sync>>,
     }
 
     impl LLMHandle {
-        #[doc = " @brief Destroys the LLM instance and releases resources.\n @param handle LLM handle.\n @return Status code (0 for success, non-zero for failure)."]
+        /// Destroys the LLM instance and releases its resources.
+        ///
+        /// # Returns
+        /// A status code: 0 for success, non-zero for failure.
         pub fn destroy(&self) -> i32 {
             unsafe { super::rkllm_destroy(self.handle) }
         }
 
-        #[doc = " @brief Runs an LLM inference task asynchronously.\n @param handle LLM handle.\n @param rkllm_input Input data for the LLM.\n @param rkllm_infer_params Parameters for the inference task.\n @param userdata Pointer to user data for the callback.\n @return Status code (0 for success, non-zero for failure)."]
+        /// Runs an LLM inference task asynchronously.
+        ///
+        /// # Parameters
+        /// - `rkllm_input`: The input data for the LLM.
+        /// - `rkllm_infer_params`: Optional parameters for the inference task.
+        /// - `user_data`: The callback handler to process the results.
+        ///
+        /// # Returns
+        /// This function does not return a value directly. Instead, it starts an asynchronous operation and processes results via the provided callback handler.
         pub fn run(
             &self,
             rkllm_input: RKLLMInput,
@@ -188,7 +208,13 @@ pub mod prelude {
             };
         }
 
-        #[doc = " @brief Loads a prompt cache from a file.\n @param handle LLM handle.\n @param prompt_cache_path Path to the prompt cache file.\n @return Status code (0 for success, non-zero for failure)."]
+        /// Loads a prompt cache from a file.
+        ///
+        /// # Parameters
+        /// - `cache_path`: The path to the prompt cache file.
+        ///
+        /// # Returns
+        /// This function does not return a value directly. Instead, it loads the cache into the LLM instance.
         pub fn load_prompt_cache(&self, cache_path: &str) {
             let prompt_cache_path = std::ffi::CString::new(cache_path).unwrap();
             let prompt_cache_path_ptr = prompt_cache_path.as_ptr() as *const std::os::raw::c_char;
@@ -196,12 +222,13 @@ pub mod prelude {
         }
     }
 
+    /// Internal callback function to handle LLM results from the C library.
     unsafe extern "C" fn callback_passtrough(
         result: *mut super::RKLLMResult,
         userdata: *mut ::std::os::raw::c_void,
         state: super::LLMCallState,
     ) {
-        Arc::increment_strong_count(userdata); // 我們沒有真的要free掉它
+        Arc::increment_strong_count(userdata); // We don't actually want to free it
         let instance_data = unsafe { Arc::from_raw(userdata as *const InstanceData) };
         let new_state = match state {
             0 => LLMCallState::Normal,
@@ -209,7 +236,7 @@ pub mod prelude {
             2 => LLMCallState::Finish,
             3 => LLMCallState::Error,
             4 => LLMCallState::GetLastHiddenLayer,
-            _ => panic!("Not expect LLMCallState"),
+            _ => panic!("Unexpected LLMCallState"),
         };
 
         let new_result = if result.is_null() {
@@ -221,7 +248,7 @@ pub mod prelude {
                 } else {
                     (unsafe { CStr::from_ptr((*result).text) })
                         .to_str()
-                        .expect("Convert cstr failed")
+                        .expect("Failed to convert C string")
                         .to_owned()
                         .clone()
                 },
@@ -233,7 +260,13 @@ pub mod prelude {
         instance_data.callback_handler.lock().unwrap().handle(new_result, new_state);
     }
 
-    #[doc = " @brief Initializes the LLM with the given parameters.\n @param handle Pointer to the LLM handle.\n @param param Configuration parameters for the LLM.\n @param callback Callback function to handle LLM results.\n @return Status code (0 for success, non-zero for failure)."]
+    /// Initializes the LLM with the given parameters.
+    ///
+    /// # Parameters
+    /// - `param`: A pointer to the LLM configuration parameters.
+    ///
+    /// # Returns
+    /// If successful, returns a `Result` containing the `LLMHandle`; otherwise, returns an error.
     pub fn rkllm_init(
         param: *mut super::RKLLMParam,
     ) -> Result<LLMHandle, Box<dyn std::error::Error + Send + Sync>> {
@@ -254,19 +287,20 @@ pub mod prelude {
         } else {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("rkllm_init ret non zero: {}", ret),
+                format!("rkllm_init returned non-zero: {}", ret),
             )));
         }
     }
 
+    /// Represents different types of input that can be provided to the LLM.
     pub enum RKLLMInput {
-        #[doc = "< Input is a text prompt."]
+        /// Input is a text prompt.
         Prompt(String),
-        #[doc = "< Input is a sequence of tokens."]
+        /// Input is a sequence of tokens.
         Token(String),
-        #[doc = "< Input is an embedding vector."]
+        /// Input is an embedding vector.
         Embed(String),
-        #[doc = "< Input is multimodal (e.g., text and image)."]
+        /// Input is multimodal, such as text and image.
         Multimodal(String),
     }
 }
