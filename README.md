@@ -22,7 +22,7 @@ Please install `librkllmrt.so` in one of the common Linux library paths:
 
 Alternatively, you can use the `LD_LIBRARY_PATH` environment variable to specify the library path. For example:
 
-```sh
+```bash
 export LD_LIBRARY_PATH=/path/to/your/library:$LD_LIBRARY_PATH
 ```
 
@@ -36,13 +36,13 @@ For devices with less memory, you can use [this model](https://huggingface.co/VR
 
 First, install Rust, or refer to [this guide](https://www.rust-lang.org/tools/install)
 
-```
+```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ### Lazy Way
 
-```
+```bash
 # If you already installed git-lfs, skip this step
 sudo apt install git-lfs
 
@@ -73,7 +73,7 @@ Say something:
 
 Add the following to your `Cargo.toml`:
 
-```
+```toml
 [dependencies]
 rkllm-rs = "0.1.0"
 ```
@@ -82,14 +82,14 @@ rkllm-rs = "0.1.0"
 
 `rkllm-rs` also supports running as a binary, suitable for users who do not plan to do further development or prefer an out-of-the-box experience.
 
-```
+```bash
 cargo install rkllm-rs --features bin
 rkllm ~/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4/deepseek-r1-1.5B-rkllm1.1.4.rkllm --model_type=deepseek
 ```
 
 Here is the help for the tool, with various parameters set according to the help:
 
-```
+```bash
 Usage: rkllm [OPTIONS] [model]
 
 Arguments:
@@ -134,7 +134,7 @@ You can manually create the prompt using `tokenizer_config.json` or use Python's
 
 This library provides a method to automatically fetch the corresponding model's `tokenizer_config.json` from online sources.
 
-```
+```bash
 cargo install rkllm-rs --features "bin, online_config"
 rkllm ~/Tinnyllama-1.1B-rk3588-rkllm-1.1.4/TinyLlama-1.1B-Chat-v1.0-rk3588-w8a8-opt-0-hybrid-ratio-0.5.rkllm --model_type=TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ```
