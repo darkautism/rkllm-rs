@@ -249,7 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         },
     };
     if let Some(cache_path) = cache_path {
-        llm_handle.load_prompt_cache(cache_path);
+        let _ = llm_handle.load_prompt_cache(cache_path);
     }
 
     loop {
@@ -293,7 +293,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // println!("{}", input);
 
             print!("\nRobot: \n");
-            llm_handle.run(
+            let _ = llm_handle.run(
                 RKLLMInput::Prompt(input),
                 Some(rkllm_infer_params.clone()),
                 UserDataWithCallBack {
@@ -304,6 +304,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    llm_handle.destroy();
+    let _ = llm_handle.destroy();
     Ok(())
 }

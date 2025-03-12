@@ -85,6 +85,13 @@ pub mod prelude {
         pub last_hidden_layer: RKLLMResultLastHiddenLayer,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct RKLLMLoraAdapter {
+        pub lora_adapter_path: String,
+        pub lora_adapter_name: String,
+        pub scale: f32,
+    }
+
     /// Handle to an LLM instance.
     #[derive(Clone, Debug, Copy)]
     pub struct LLMHandle {
@@ -108,11 +115,17 @@ pub mod prelude {
 
     impl LLMHandle {
         /// Destroys the LLM instance and releases its resources.
-        ///
-        /// # Returns
-        /// A status code: 0 for success, non-zero for failure.
-        pub fn destroy(&self) -> i32 {
-            unsafe { super::rkllm_destroy(self.handle) }
+        pub fn destroy(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let ret = unsafe { super::rkllm_destroy(self.handle) };
+
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_run returned non-zero: {}", ret),
+                )));
+            }
         }
 
         /// Runs an LLM inference task asynchronously.
@@ -129,7 +142,7 @@ pub mod prelude {
             rkllm_input: RKLLMInput,
             rkllm_infer_params: Option<RKLLMInferParam>,
             user_data: impl RkllmCallbackHandler + Send + Sync + 'static,
-        ) {
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let instance_data = Arc::new(InstanceData {
                 callback_handler: Arc::new(Mutex::new(user_data)),
             });
@@ -167,9 +180,10 @@ pub mod prelude {
                         lora_params: match rkllm_infer_params.lora_params {
                             Some(a) => {
                                 lora_adapter_name = a;
-                                lora_adapter_name_ptr = lora_adapter_name.as_ptr() as *const std::os::raw::c_char;
-                                loraparam = RKLLMLoraParam{
-                                    lora_adapter_name: lora_adapter_name_ptr
+                                lora_adapter_name_ptr =
+                                    lora_adapter_name.as_ptr() as *const std::os::raw::c_char;
+                                loraparam = RKLLMLoraParam {
+                                    lora_adapter_name: lora_adapter_name_ptr,
                                 };
                                 &mut loraparam
                             }
@@ -180,7 +194,8 @@ pub mod prelude {
                         {
                             prompt_cache_cstring =
                                 std::ffi::CString::new(cache_params.prompt_cache_path).unwrap();
-                            prompt_cache_cstring_ptr = prompt_cache_cstring.as_ptr() as *const std::os::raw::c_char;
+                            prompt_cache_cstring_ptr =
+                                prompt_cache_cstring.as_ptr() as *const std::os::raw::c_char;
 
                             &mut super::RKLLMPromptCacheParam {
                                 save_prompt_cache: if cache_params.save_prompt_cache {
@@ -198,7 +213,7 @@ pub mod prelude {
                     null_mut()
                 };
 
-            unsafe {
+            let ret = unsafe {
                 super::rkllm_run(
                     self.handle,
                     &mut input,
@@ -206,19 +221,103 @@ pub mod prelude {
                     userdata_ptr,
                 )
             };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_run returned non-zero: {}", ret),
+                )));
+            }
         }
 
         /// Loads a prompt cache from a file.
         ///
         /// # Parameters
         /// - `cache_path`: The path to the prompt cache file.
-        ///
-        /// # Returns
-        /// This function does not return a value directly. Instead, it loads the cache into the LLM instance.
-        pub fn load_prompt_cache(&self, cache_path: &str) {
+        pub fn load_prompt_cache(
+            &self,
+            cache_path: &str,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let prompt_cache_path = std::ffi::CString::new(cache_path).unwrap();
             let prompt_cache_path_ptr = prompt_cache_path.as_ptr() as *const std::os::raw::c_char;
-            unsafe { super::rkllm_load_prompt_cache(self.handle, prompt_cache_path_ptr) };
+            let ret = unsafe { super::rkllm_load_prompt_cache(self.handle, prompt_cache_path_ptr) };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_load_prompt_cache returned non-zero: {}", ret),
+                )));
+            }
+        }
+
+        /// Release a prompt cache from a file.
+        pub fn release_prompt_cache(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let ret = unsafe { super::rkllm_release_prompt_cache(self.handle) };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_release_prompt_cache returned non-zero: {}", ret),
+                )));
+            }
+        }
+
+        /// Aborts an ongoing LLM task
+        pub fn abort(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let ret = unsafe { super::rkllm_abort(self.handle) };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_abort returned non-zero: {}", ret),
+                )));
+            }
+        }
+
+        /// Checks if an LLM task is currently running.
+        pub fn is_running(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let ret = unsafe { super::rkllm_is_running(self.handle) };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_is_running returned non-zero: {}", ret),
+                )));
+            }
+        }
+
+        /// Loads a Lora adapter into the LLM.
+        pub fn load_lora(
+            &self,
+            lora_cfg: &RKLLMLoraAdapter,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let lora_adapter_name_cstring =
+                std::ffi::CString::new(lora_cfg.lora_adapter_name.clone()).unwrap();
+            let lora_adapter_name_cstring_ptr =
+                lora_adapter_name_cstring.as_ptr() as *const std::os::raw::c_char;
+            let lora_adapter_path_cstring =
+                std::ffi::CString::new(lora_cfg.lora_adapter_path.clone()).unwrap();
+            let lora_adapter_path_cstring_ptr =
+                lora_adapter_path_cstring.as_ptr() as *const std::os::raw::c_char;
+            let mut param = super::RKLLMLoraAdapter {
+                lora_adapter_path: lora_adapter_path_cstring_ptr,
+                lora_adapter_name: lora_adapter_name_cstring_ptr,
+                scale: lora_cfg.scale,
+            };
+            let ret = unsafe { super::rkllm_load_lora(self.handle, &mut param) };
+            if ret == 0 {
+                return Ok(());
+            } else {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_load_lora returned non-zero: {}", ret),
+                )));
+            }
         }
     }
 
@@ -257,7 +356,11 @@ pub mod prelude {
             })
         };
 
-        instance_data.callback_handler.lock().unwrap().handle(new_result, new_state);
+        instance_data
+            .callback_handler
+            .lock()
+            .unwrap()
+            .handle(new_result, new_state);
     }
 
     /// Initializes the LLM with the given parameters.
