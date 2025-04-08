@@ -1,4 +1,4 @@
-# rkllm-rs
+# rkllm-rs [![dependency status](https://deps.rs/repo/github/darkautism/rkllm-rs/status.svg)](https://deps.rs/repo/github/darkautism/rkllm-rs)
 
 `rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
 
