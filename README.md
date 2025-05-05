@@ -69,6 +69,13 @@ Hello! How can I assist you today? 😊
 Say something:
 ```
 
+### Version Support
+
+| Rkllm Version | Rkllm-rs version |
+|---|---|
+| v1.1.4 | 0.1.8 |
+| v1.2.0 | 0.1.9 |
+
 ### Using as a Library
 
 Add the following to your `Cargo.toml`:

@@ -30,6 +30,15 @@ pub mod prelude {
         GetLastHiddenLayer = 4,
     }
 
+    #[derive(Debug, Clone, Default)]
+    pub enum KeepHistory {
+        #[default]
+        /// Do not keep the history of the conversation.
+        NoKeepHistory = 0,
+        /// Keep the history of the conversation.
+        KeepHistory = 1,
+    }
+
     /// Structure for defining parameters during inference.
     #[derive(Debug, Clone, Default)]
     pub struct RKLLMInferParam {
@@ -39,6 +48,7 @@ pub mod prelude {
         pub lora_params: Option<String>,
         /// Optional prompt cache parameters.
         pub prompt_cache_params: Option<RKLLMPromptCacheParam>,
+        pub keep_history: KeepHistory,
     }
 
     /// Defines the inference mode for the LLM.
@@ -176,6 +186,7 @@ pub mod prelude {
             let new_rkllm_infer_params: *mut super::RKLLMInferParam =
                 if let Some(rkllm_infer_params) = rkllm_infer_params {
                     &mut super::RKLLMInferParam {
+                        keep_history: rkllm_infer_params.keep_history as i32,
                         mode: rkllm_infer_params.mode.into(),
                         lora_params: match rkllm_infer_params.lora_params {
                             Some(a) => {

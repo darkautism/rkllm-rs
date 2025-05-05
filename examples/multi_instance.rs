@@ -9,7 +9,7 @@ struct Data1{
     userdata: String,
 }
 impl RkllmCallbackHandler for Data1 {
-    fn handle(&self, _result: Option<RKLLMResult>, _state: LLMCallState) {
+    fn handle(&mut self, _result: Option<RKLLMResult>, _state: LLMCallState) {
         match _state {
             LLMCallState::Normal => {
                 if let Some(ret) = _result {
@@ -30,7 +30,7 @@ struct Data2{
 
 }
 impl RkllmCallbackHandler for Data2 {
-    fn handle(&self, _result: Option<RKLLMResult>, _state: LLMCallState) {
+    fn handle(&mut self, _result: Option<RKLLMResult>, _state: LLMCallState) {
         print!("2");
     }
 }
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "哈哈是我喇"
         );
 
-        llm_handle1.run::<Data1>(
+        llm_handle1.run(
             RKLLMInput::Prompt(input),
             Some(rkllm_infer_params.clone()),
             Data1{
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "<｜begin▁of▁sentence｜><｜User｜>{}<｜Assistant｜>",
             "哈哈是我喇"
         );
-        llm_handle2.run::<Data2>(
+        llm_handle2.run(
             RKLLMInput::Prompt(input),
             Some(rkllm_infer_params.clone()),
             Data2{},
