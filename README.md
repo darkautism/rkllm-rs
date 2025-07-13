@@ -73,8 +73,10 @@ Say something:
 
 | Rkllm Version | Rkllm-rs version |
 |---|---|
-| v1.1.4 | 0.1.8 |
+| v1.2.1 | 0.1.10 |
 | v1.2.0 | 0.1.9 |
+| v1.1.4 | 0.1.8 |
+
 
 ### Using as a Library
 

@@ -160,20 +160,31 @@ pub mod prelude {
             let userdata_ptr = Arc::into_raw(instance_data) as *mut std::ffi::c_void;
             let prompt_cstring;
             let prompt_cstring_ptr;
-            let mut input = match rkllm_input {
-                RKLLMInput::Prompt(prompt) => {
+            let role_text;
+            let role_text_ptr;
+            let mut input = match rkllm_input.input_type {
+                RKLLMInputType::Prompt(prompt) => {
                     prompt_cstring = std::ffi::CString::new(prompt).unwrap();
                     prompt_cstring_ptr = prompt_cstring.as_ptr() as *const std::os::raw::c_char;
+
+                    role_text = match rkllm_input.role {
+                        RKLLMInputRole::User => "user",
+                        RKLLMInputRole::Tool => "tool",
+                    };
+                    role_text_ptr = role_text.as_ptr() as *const std::os::raw::c_char;
+
                     super::RKLLMInput {
                         input_type: super::RKLLMInputType_RKLLM_INPUT_PROMPT,
+                        enable_thinking: rkllm_input.enable_thinking,
+                        role: role_text_ptr,
                         __bindgen_anon_1: super::RKLLMInput__bindgen_ty_1 {
                             prompt_input: prompt_cstring_ptr,
                         },
                     }
                 }
-                RKLLMInput::Token(_) => todo!(),
-                RKLLMInput::Embed(_) => todo!(),
-                RKLLMInput::Multimodal(_) => todo!(),
+                RKLLMInputType::Token(_) => todo!(),
+                RKLLMInputType::Embed(_) => todo!(),
+                RKLLMInputType::Multimodal(_) => todo!(),
             };
 
             let prompt_cache_cstring;
@@ -337,7 +348,7 @@ pub mod prelude {
         result: *mut super::RKLLMResult,
         userdata: *mut ::std::os::raw::c_void,
         state: super::LLMCallState,
-    ) {
+    ) -> i32 {
         Arc::increment_strong_count(userdata); // We don't actually want to free it
         let instance_data = unsafe { Arc::from_raw(userdata as *const InstanceData) };
         let new_state = match state {
@@ -372,6 +383,7 @@ pub mod prelude {
             .lock()
             .unwrap()
             .handle(new_result, new_state);
+        0
     }
 
     /// Initializes the LLM with the given parameters.
@@ -393,7 +405,7 @@ pub mod prelude {
                 *mut super::RKLLMResult,
                 *mut ::std::os::raw::c_void,
                 super::LLMCallState,
-            ),
+            ) -> i32,
         > = Some(callback_passtrough);
         let ret = unsafe { super::rkllm_init(&mut handle.handle, param, callback) };
         if ret == 0 {
@@ -407,7 +419,17 @@ pub mod prelude {
     }
 
     /// Represents different types of input that can be provided to the LLM.
-    pub enum RKLLMInput {
+    pub struct RKLLMInput {
+        /// The type of input being provided to the LLM.
+        pub input_type: RKLLMInputType,
+        /// Whether to enable thinking during the inference.
+        pub enable_thinking: bool,
+        /// The role of the user providing the input.
+        pub role: RKLLMInputRole,
+    }
+
+    /// The type of input being provided to the LLM.
+    pub enum RKLLMInputType {
         /// Input is a text prompt.
         Prompt(String),
         /// Input is a sequence of tokens.
@@ -416,5 +438,13 @@ pub mod prelude {
         Embed(String),
         /// Input is multimodal, such as text and image.
         Multimodal(String),
+    }
+
+    /// The role of the user providing the input.
+    pub enum RKLLMInputRole {
+        /// User
+        User,
+        /// Tool
+        Tool,
     }
 }
