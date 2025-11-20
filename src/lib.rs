@@ -243,6 +243,13 @@ pub mod prelude {
                     userdata_ptr,
                 )
             };
+
+            let _ = unsafe {
+                // C 語言端不會管理這個記憶體
+                // 我們必須把它轉回 Arc，讓 Rust 的機制自動 Drop 它
+                // 這樣包在裡面的 Sender 才會被關閉
+                Arc::from_raw(userdata_ptr as *const InstanceData)
+            };
             if ret == 0 {
                 return Ok(());
             } else {
