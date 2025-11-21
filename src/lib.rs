@@ -103,22 +103,6 @@ pub mod prelude {
         pub scale: f32,
     }
 
-    /// Structure holding parameters for cross-attention inference.
-    ///
-    /// This structure is used when performing cross-attention in the decoder.
-    /// It provides the encoder output (key/value caches), position indices,
-    /// and attention mask.
-    pub struct CrossAttnParam<'a> {
-        /// Slice to encoder key cache (size: num_layers * num_tokens * num_kv_heads * head_dim).
-        pub encoder_k_cache: &'a [f32],
-        /// Slice to encoder value cache (size: num_layers * num_kv_heads * head_dim * num_tokens).
-        pub encoder_v_cache: &'a [f32],
-        /// Slice to encoder attention mask (array of size num_tokens).
-        pub encoder_mask: &'a [f32],
-        /// Slice to encoder token positions (array of size num_tokens).
-        pub encoder_pos: &'a [i32],
-    }
-
     /// Handle to an LLM instance.
     #[derive(Clone, Debug, Copy)]
     pub struct LLMHandle {
@@ -514,53 +498,6 @@ pub mod prelude {
             }
         }
 
-        /// Sets the cross-attention parameters for the LLM decoder.
-        ///
-        /// # Parameters
-        /// - `cross_attn_params`: Structure containing encoder-related input data
-        ///   used for cross-attention.
-        ///
-        /// # Safety
-        /// This function takes raw pointers to Rust slices. The caller must ensure that the data
-        /// pointed to by `cross_attn_params` remains valid for the duration of its usage by the LLM.
-        /// If the C API stores these pointers for later use (which is likely for large tensors),
-        /// the data must outlive the LLM's usage of it.
-        pub unsafe fn set_cross_attn_params(
-            &self,
-            cross_attn_params: &CrossAttnParam,
-        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-            // Validate that lengths match num_tokens implied by encoder_pos or others if necessary,
-            // but the C API trusts us.
-            // We need to convert our CrossAttnParam to super::RKLLMCrossAttnParam
-
-            // Note: encoder_k_cache size: num_layers * num_tokens * num_kv_heads * head_dim
-            //       encoder_v_cache size: num_layers * num_kv_heads * head_dim * num_tokens
-            //       encoder_mask size: num_tokens
-            //       encoder_pos size: num_tokens
-
-            // We assume the user has set up the slices correctly.
-            // num_tokens is derived from encoder_pos length.
-            let num_tokens = cross_attn_params.encoder_pos.len() as i32;
-
-            let mut c_params = super::RKLLMCrossAttnParam {
-                encoder_k_cache: cross_attn_params.encoder_k_cache.as_ptr() as *mut f32,
-                encoder_v_cache: cross_attn_params.encoder_v_cache.as_ptr() as *mut f32,
-                encoder_mask: cross_attn_params.encoder_mask.as_ptr() as *mut f32,
-                encoder_pos: cross_attn_params.encoder_pos.as_ptr() as *mut i32,
-                num_tokens: num_tokens,
-            };
-
-            let ret = super::rkllm_set_cross_attn_params(self.handle, &mut c_params);
-
-            if ret == 0 {
-                Ok(())
-            } else {
-                Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("rkllm_set_cross_attn_params returned non-zero: {}", ret),
-                )))
-            }
-        }
     }
 
     /// Internal callback function to handle LLM results from the C library.
