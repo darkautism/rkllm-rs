@@ -1280,6 +1280,8 @@ dependencies = [
  "bindgen",
  "clap",
  "futures",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

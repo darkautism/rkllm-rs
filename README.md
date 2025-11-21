@@ -133,6 +133,56 @@ Options:
           Print version
 ```
 
+## Function Calling
+
+`rkllm-rs` supports function calling. You can define your tools using Rust structs derived with `serde::Serialize` and pass them to the `set_function_tools` method.
+
+First, ensure you have `serde` and `serde_json` dependencies in your `Cargo.toml`.
+
+```toml
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rkllm-rs = "..."
+```
+
+Example usage:
+
+```rust
+use rkllm_rs::prelude::*;
+use serde::{Serialize, Deserialize};
+
+// Define your tool structures
+#[derive(Serialize)]
+struct Tool {
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: ToolFunction,
+}
+
+// ... other struct definitions (ToolFunction, ToolParameters, etc.)
+
+let tools = vec![
+    Tool {
+        tool_type: "function".to_string(),
+        function: ToolFunction {
+            name: "get_current_weather".to_string(),
+            description: "Get the current weather".to_string(),
+            parameters: ToolParameters { ... },
+        },
+    }
+];
+
+// Call set_function_tools
+// handle.set_function_tools(
+//     "System prompt here...",
+//     &tools, // Pass the serializable tools struct
+//     "<|tool_response|>"
+// ).expect("Failed to set function tools");
+```
+
+For a complete example, please refer to `examples/function_call.rs`.
+
 ## Online Tokenizer Config
 
 Currently, the model types are hardcoded in the program, and unsupported models will not correctly generate `bos_token` and assistant prompts. Most models will produce incorrect responses without the correct prompts, such as irrelevant answers or self-dialogue (though, to be fair, they might still engage in self-dialogue even with the prompts).
