@@ -5,6 +5,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 pub mod prelude {
+    use serde::Serialize;
     use std::ffi::CStr;
     use std::ptr::null_mut;
     use std::sync::Arc;
@@ -100,6 +101,22 @@ pub mod prelude {
         pub lora_adapter_path: String,
         pub lora_adapter_name: String,
         pub scale: f32,
+    }
+
+    /// Structure holding parameters for cross-attention inference.
+    ///
+    /// This structure is used when performing cross-attention in the decoder.
+    /// It provides the encoder output (key/value caches), position indices,
+    /// and attention mask.
+    pub struct CrossAttnParam<'a> {
+        /// Slice to encoder key cache (size: num_layers * num_tokens * num_kv_heads * head_dim).
+        pub encoder_k_cache: &'a [f32],
+        /// Slice to encoder value cache (size: num_layers * num_kv_heads * head_dim * num_tokens).
+        pub encoder_v_cache: &'a [f32],
+        /// Slice to encoder attention mask (array of size num_tokens).
+        pub encoder_mask: &'a [f32],
+        /// Slice to encoder token positions (array of size num_tokens).
+        pub encoder_pos: &'a [i32],
     }
 
     /// Handle to an LLM instance.
@@ -348,6 +365,230 @@ pub mod prelude {
                 )));
             }
         }
+
+        /// Clear the key-value cache for a given LLM handle.
+        ///
+        /// This function is used to clear part or all of the KV cache.
+        ///
+        /// # Parameters
+        /// - `keep_system_prompt`: Flag indicating whether to retain the system prompt in the cache (true to retain, false to clear).
+        ///   This flag is ignored if a specific range [start_pos, end_pos) is provided.
+        /// - `start_pos`: Slice of start positions (inclusive) of the KV cache ranges to clear, one per batch.
+        /// - `end_pos`: Slice of end positions (exclusive) of the KV cache ranges to clear, one per batch.
+        ///   If both start_pos and end_pos are None, the entire cache will be cleared and keep_system_prompt will take effect.
+        ///   If start_pos[i] < end_pos[i], only the specified range will be cleared, and keep_system_prompt will be ignored.
+        ///
+        /// # Note
+        /// start_pos or end_pos is only valid when keep_history == 0 and the generation has been paused by returning 1 in the callback.
+        pub fn clear_kv_cache(
+            &self,
+            keep_system_prompt: bool,
+            start_pos: Option<&[i32]>,
+            end_pos: Option<&[i32]>,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let start_ptr = start_pos.map_or(std::ptr::null_mut(), |s| s.as_ptr() as *mut i32);
+            let end_ptr = end_pos.map_or(std::ptr::null_mut(), |s| s.as_ptr() as *mut i32);
+
+            let ret = unsafe {
+                super::rkllm_clear_kv_cache(
+                    self.handle,
+                    if keep_system_prompt { 1 } else { 0 },
+                    start_ptr,
+                    end_ptr,
+                )
+            };
+
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_clear_kv_cache returned non-zero: {}", ret),
+                )))
+            }
+        }
+
+        /// Get the current size of the key-value cache for a given LLM handle.
+        ///
+        /// This function returns the total number of positions currently stored in the model's KV cache.
+        ///
+        /// # Parameters
+        /// - `cache_sizes`: Mutable slice where the per-batch cache sizes will be stored.
+        ///   The slice must be preallocated with space for `n_batch` elements.
+        pub fn get_kv_cache_size(
+            &self,
+            cache_sizes: &mut [i32],
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let ret =
+                unsafe { super::rkllm_get_kv_cache_size(self.handle, cache_sizes.as_mut_ptr()) };
+
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_get_kv_cache_size returned non-zero: {}", ret),
+                )))
+            }
+        }
+
+        /// Sets the chat template for the LLM, including system prompt, prefix, and postfix.
+        ///
+        /// This function allows you to customize the chat template by providing a system prompt, a prompt prefix, and a prompt postfix.
+        /// The system prompt is typically used to define the behavior or context of the language model,
+        /// while the prefix and postfix are used to format the user input and output respectively.
+        ///
+        /// # Parameters
+        /// - `system_prompt`: The system prompt that defines the context or behavior of the language model.
+        /// - `prompt_prefix`: The prefix added before the user input in the chat.
+        /// - `prompt_postfix`: The postfix added after the user input in the chat.
+        pub fn set_chat_template(
+            &self,
+            system_prompt: &str,
+            prompt_prefix: &str,
+            prompt_postfix: &str,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let sys_prompt_c = std::ffi::CString::new(system_prompt).unwrap();
+            let prefix_c = std::ffi::CString::new(prompt_prefix).unwrap();
+            let postfix_c = std::ffi::CString::new(prompt_postfix).unwrap();
+
+            let ret = unsafe {
+                super::rkllm_set_chat_template(
+                    self.handle,
+                    sys_prompt_c.as_ptr(),
+                    prefix_c.as_ptr(),
+                    postfix_c.as_ptr(),
+                )
+            };
+
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_set_chat_template returned non-zero: {}", ret),
+                )))
+            }
+        }
+
+        /// Sets the function calling configuration for the LLM, including system prompt, tool definitions, and tool response token.
+        ///
+        /// # Parameters
+        /// - `system_prompt`: The system prompt that defines the context or behavior of the language model.
+        /// - `tools`: A serializable struct that defines the available functions, including their names, descriptions, and parameters.
+        ///   It will be serialized to JSON before passing to C API.
+        /// - `tool_response_str`: A unique tag used to identify function call results within a conversation. It acts as the marker tag,
+        ///   allowing tokenizer to recognize tool outputs separately from normal dialogue turns.
+        pub fn set_function_tools<T: Serialize>(
+            &self,
+            system_prompt: &str,
+            tools: &T,
+            tool_response_str: &str,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let sys_prompt_c = std::ffi::CString::new(system_prompt).unwrap();
+            let tools_json = serde_json::to_string(tools).map_err(|e| {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Failed to serialize tools: {}", e),
+                ))
+            })?;
+            let tools_c = std::ffi::CString::new(tools_json).unwrap();
+            let tool_response_c = std::ffi::CString::new(tool_response_str).unwrap();
+
+            let ret = unsafe {
+                super::rkllm_set_function_tools(
+                    self.handle,
+                    sys_prompt_c.as_ptr(),
+                    tools_c.as_ptr(),
+                    tool_response_c.as_ptr(),
+                )
+            };
+
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_set_function_tools returned non-zero: {}", ret),
+                )))
+            }
+        }
+
+        /// Sets the cross-attention parameters for the LLM decoder within a scoped closure.
+        ///
+        /// This function temporarily sets the cross-attention parameters for the duration of the provided closure.
+        /// This ensures that the pointers to the Rust slices provided in `cross_attn_params` remain valid
+        /// while the LLM is using them (e.g., during `run`).
+        ///
+        /// # Parameters
+        /// - `cross_attn_params`: Structure containing encoder-related input data used for cross-attention.
+        /// - `func`: A closure that will be executed while the parameters are set. You should call `run` inside this closure.
+        ///
+        /// # Example
+        /// ```rust,no_run
+        /// # use rkllm_rs::prelude::*;
+        /// # let handle: LLMHandle = unsafe { std::mem::zeroed() };
+        /// # let params = CrossAttnParam {
+        /// #     encoder_k_cache: &[], encoder_v_cache: &[], encoder_mask: &[], encoder_pos: &[]
+        /// # };
+        /// handle.with_cross_attn(&params, |h| {
+        ///     // Safe to call run here, params are valid
+        ///     // h.run(..., ..., ...).unwrap();
+        /// }).expect("Failed to set params");
+        /// ```
+        pub fn with_cross_attn<F, R>(
+            &self,
+            cross_attn_params: &CrossAttnParam,
+            func: F,
+        ) -> Result<R, Box<dyn std::error::Error + Send + Sync>>
+        where
+            F: FnOnce(&LLMHandle) -> R,
+        {
+            // Internal guard to ensure params are unset when the scope exits
+            struct ResetGuard {
+                handle: super::LLMHandle,
+            }
+
+            impl Drop for ResetGuard {
+                fn drop(&mut self) {
+                    unsafe {
+                        // Pass NULL to clear/unset the parameters
+                        super::rkllm_set_cross_attn_params(self.handle, std::ptr::null_mut());
+                    }
+                }
+            }
+
+            // Validate that lengths match num_tokens implied by encoder_pos or others if necessary.
+            // We assume the user has set up the slices correctly.
+            let num_tokens = cross_attn_params.encoder_pos.len() as i32;
+
+            let mut c_params = super::RKLLMCrossAttnParam {
+                encoder_k_cache: cross_attn_params.encoder_k_cache.as_ptr() as *mut f32,
+                encoder_v_cache: cross_attn_params.encoder_v_cache.as_ptr() as *mut f32,
+                encoder_mask: cross_attn_params.encoder_mask.as_ptr() as *mut f32,
+                encoder_pos: cross_attn_params.encoder_pos.as_ptr() as *mut i32,
+                num_tokens: num_tokens,
+            };
+
+            // Set the parameters
+            let ret = unsafe { super::rkllm_set_cross_attn_params(self.handle, &mut c_params) };
+
+            if ret != 0 {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_set_cross_attn_params returned non-zero: {}", ret),
+                )));
+            }
+
+            // Create the guard to unset params on exit
+            let _guard = ResetGuard {
+                handle: self.handle,
+            };
+
+            // Execute the closure
+            Ok(func(self))
+        }
+
     }
 
     /// Internal callback function to handle LLM results from the C library.
