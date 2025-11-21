@@ -103,6 +103,22 @@ pub mod prelude {
         pub scale: f32,
     }
 
+    /// Structure holding parameters for cross-attention inference.
+    ///
+    /// This structure is used when performing cross-attention in the decoder.
+    /// It provides the encoder output (key/value caches), position indices,
+    /// and attention mask.
+    pub struct CrossAttnParam<'a> {
+        /// Slice to encoder key cache (size: num_layers * num_tokens * num_kv_heads * head_dim).
+        pub encoder_k_cache: &'a [f32],
+        /// Slice to encoder value cache (size: num_layers * num_kv_heads * head_dim * num_tokens).
+        pub encoder_v_cache: &'a [f32],
+        /// Slice to encoder attention mask (array of size num_tokens).
+        pub encoder_mask: &'a [f32],
+        /// Slice to encoder token positions (array of size num_tokens).
+        pub encoder_pos: &'a [i32],
+    }
+
     /// Handle to an LLM instance.
     #[derive(Clone, Debug, Copy)]
     pub struct LLMHandle {
@@ -496,6 +512,81 @@ pub mod prelude {
                     format!("rkllm_set_function_tools returned non-zero: {}", ret),
                 )))
             }
+        }
+
+        /// Sets the cross-attention parameters for the LLM decoder within a scoped closure.
+        ///
+        /// This function temporarily sets the cross-attention parameters for the duration of the provided closure.
+        /// This ensures that the pointers to the Rust slices provided in `cross_attn_params` remain valid
+        /// while the LLM is using them (e.g., during `run`).
+        ///
+        /// # Parameters
+        /// - `cross_attn_params`: Structure containing encoder-related input data used for cross-attention.
+        /// - `func`: A closure that will be executed while the parameters are set. You should call `run` inside this closure.
+        ///
+        /// # Example
+        /// ```rust,no_run
+        /// # use rkllm_rs::prelude::*;
+        /// # let handle: LLMHandle = unsafe { std::mem::zeroed() };
+        /// # let params = CrossAttnParam {
+        /// #     encoder_k_cache: &[], encoder_v_cache: &[], encoder_mask: &[], encoder_pos: &[]
+        /// # };
+        /// handle.with_cross_attn(&params, |h| {
+        ///     // Safe to call run here, params are valid
+        ///     // h.run(..., ..., ...).unwrap();
+        /// }).expect("Failed to set params");
+        /// ```
+        pub fn with_cross_attn<F, R>(
+            &self,
+            cross_attn_params: &CrossAttnParam,
+            func: F,
+        ) -> Result<R, Box<dyn std::error::Error + Send + Sync>>
+        where
+            F: FnOnce(&LLMHandle) -> R,
+        {
+            // Internal guard to ensure params are unset when the scope exits
+            struct ResetGuard {
+                handle: super::LLMHandle,
+            }
+
+            impl Drop for ResetGuard {
+                fn drop(&mut self) {
+                    unsafe {
+                        // Pass NULL to clear/unset the parameters
+                        super::rkllm_set_cross_attn_params(self.handle, std::ptr::null_mut());
+                    }
+                }
+            }
+
+            // Validate that lengths match num_tokens implied by encoder_pos or others if necessary.
+            // We assume the user has set up the slices correctly.
+            let num_tokens = cross_attn_params.encoder_pos.len() as i32;
+
+            let mut c_params = super::RKLLMCrossAttnParam {
+                encoder_k_cache: cross_attn_params.encoder_k_cache.as_ptr() as *mut f32,
+                encoder_v_cache: cross_attn_params.encoder_v_cache.as_ptr() as *mut f32,
+                encoder_mask: cross_attn_params.encoder_mask.as_ptr() as *mut f32,
+                encoder_pos: cross_attn_params.encoder_pos.as_ptr() as *mut i32,
+                num_tokens: num_tokens,
+            };
+
+            // Set the parameters
+            let ret = unsafe { super::rkllm_set_cross_attn_params(self.handle, &mut c_params) };
+
+            if ret != 0 {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("rkllm_set_cross_attn_params returned non-zero: {}", ret),
+                )));
+            }
+
+            // Create the guard to unset params on exit
+            let _guard = ResetGuard {
+                handle: self.handle,
+            };
+
+            // Execute the closure
+            Ok(func(self))
         }
 
     }

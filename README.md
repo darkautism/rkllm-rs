@@ -183,6 +183,28 @@ let tools = vec![
 
 For a complete example, please refer to `examples/function_call.rs`.
 
+## Cross Attention (Experimental)
+
+This library supports setting cross-attention parameters for multimodal models.
+Since the C API expects raw pointers that must remain valid during inference, this wrapper uses a scoped closure approach to ensure safety.
+
+```rust
+let params = CrossAttnParam {
+    encoder_k_cache: &k_cache,
+    encoder_v_cache: &v_cache,
+    encoder_mask: &mask,
+    encoder_pos: &pos,
+};
+
+handle.with_cross_attn(&params, |h| {
+    // The parameters are valid within this block.
+    // Call h.run(...) here.
+    // Do NOT rely on params being available after this block returns.
+}).expect("Failed to set params");
+```
+
+See `examples/cross_attn.rs` for details.
+
 ## Online Tokenizer Config
 
 Currently, the model types are hardcoded in the program, and unsupported models will not correctly generate `bos_token` and assistant prompts. Most models will produce incorrect responses without the correct prompts, such as irrelevant answers or self-dialogue (though, to be fair, they might still engage in self-dialogue even with the prompts).
