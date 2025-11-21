@@ -247,6 +247,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         } else {
             None
         },
+        keep_history: KeepHistory::NoKeepHistory,
     };
     if let Some(cache_path) = cache_path {
         let _ = llm_handle.load_prompt_cache(cache_path);
@@ -294,7 +295,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             print!("\nRobot: \n");
             let _ = llm_handle.run(
-                RKLLMInput::Prompt(input),
+                RKLLMInput{
+                    input_type: RKLLMInputType::Prompt(input),
+                    enable_thinking: false,
+                    role: RKLLMInputRole::User,
+                },
                 Some(rkllm_infer_params.clone()),
                 UserDataWithCallBack {
                     userdata: "This is an example for user pass custom data into callback"
