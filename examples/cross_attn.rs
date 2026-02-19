@@ -3,7 +3,7 @@ use rkllm_rs::prelude::*;
 fn main() {
     // Since we cannot link against the real library, we just demonstrate the syntax.
     // In a real app, you would init the handle properly.
-    let handle = unsafe { std::mem::zeroed::<LLMHandle>() };
+    let _handle = unsafe { std::mem::zeroed::<LLMHandle>() };
 
     // Mock data for cross attention
     // In reality, these would be large tensors from an encoder model
@@ -12,7 +12,7 @@ fn main() {
     let mask = vec![0.0f32; 10];
     let pos = vec![0; 10];
 
-    let params = CrossAttnParam {
+    let _params = CrossAttnParam {
         encoder_k_cache: &k_cache,
         encoder_v_cache: &v_cache,
         encoder_mask: &mask,

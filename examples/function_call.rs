@@ -1,5 +1,4 @@
-use rkllm_rs::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct ToolParameter {
@@ -58,7 +57,10 @@ fn main() {
                         ToolParameter {
                             param_type: "string".to_string(),
                             description: "The temperature unit".to_string(),
-                            enum_values: Some(vec!["celsius".to_string(), "fahrenheit".to_string()]),
+                            enum_values: Some(vec![
+                                "celsius".to_string(),
+                                "fahrenheit".to_string(),
+                            ]),
                         },
                     );
                     m

@@ -2,6 +2,10 @@
 
 `rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
 
+This repository is now split into:
+- `rkllm-sys-rs`: raw bindgen-generated FFI bindings
+- `rkllm-rs`: safe Rust wrapper APIs
+
 ## README.md
 
 - en [English](README.md)
@@ -73,6 +77,7 @@ Say something:
 
 | Rkllm Version | Rkllm-rs version |
 |---|---|
+| v1.2.3 | 0.1.14 |
 | v1.2.1 | 0.1.10 |
 | v1.2.0 | 0.1.9 |
 | v1.1.4 | 0.1.8 |
@@ -84,8 +89,39 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rkllm-rs = "0.1.0"
+rkllm-rs = "0.1.14"
 ```
+
+### Safe Wrapper API (Recommended)
+
+`rkllm-rs` now provides Rust-first wrapper types so normal usage does not need C pointers:
+
+- Initialize with `LLMConfig` + `init(...)`
+- Callback result uses `RKLLMResult<'_>` with borrowed slices for large tensors
+- Resource cleanup is automatic via `Drop` (no explicit `destroy()`)
+
+```rust
+use rkllm_rs::prelude::*;
+
+struct Handler;
+
+impl RkllmCallbackHandler for Handler {
+    fn handle(&mut self, result: Option<RKLLMResult<'_>>, state: LLMCallState) {
+        if let (LLMCallState::Normal, Some(result)) = (state, result) {
+            print!("{}", result.text);
+            if let Some(logits) = result.logits {
+                println!("logits: {}", logits.logits().len());
+            }
+        }
+    }
+}
+
+let mut config = LLMConfig::with_model_path("model.rkllm");
+config.max_new_tokens = 128;
+let handle = init(config)?;
+```
+
+For a full example, see `examples/safe_api.rs`.
 
 ### Using as a Binary
 

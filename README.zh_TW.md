@@ -2,6 +2,10 @@
 
 `rkllm-rs` 是一個使用 Rust FFI 包裝 `librkllmrt` 的函式庫。
 
+這個專案已拆分為兩個 crate：
+- `rkllm-sys-rs`：原始 bindgen FFI 綁定
+- `rkllm-rs`：安全封裝層
+
 ## README.md
 
 - en [English](README.md)
@@ -78,9 +82,40 @@ Say something:
 ```
 
 [dependencies]
-rkllm-rs = "0.1.0"
+rkllm-rs = "0.1.14"
 
 ```
+
+### 安全封裝 API（建議使用）
+
+`rkllm-rs` 現在提供 Rust-first 介面，日常使用不需要接觸 C pointer：
+
+- 用 `LLMConfig` + `init(...)` 初始化
+- callback 使用 `RKLLMResult<'_>`，大型張量以借用 slice 提供（避免不必要 clone）
+- 資源釋放由 `Drop` 自動處理（不需要 `destroy()`）
+
+```rust
+use rkllm_rs::prelude::*;
+
+struct Handler;
+
+impl RkllmCallbackHandler for Handler {
+    fn handle(&mut self, result: Option<RKLLMResult<'_>>, state: LLMCallState) {
+        if let (LLMCallState::Normal, Some(result)) = (state, result) {
+            print!("{}", result.text);
+            if let Some(logits) = result.logits {
+                println!("logits: {}", logits.logits().len());
+            }
+        }
+    }
+}
+
+let mut config = LLMConfig::with_model_path("model.rkllm");
+config.max_new_tokens = 128;
+let handle = init(config)?;
+```
+
+完整範例可參考 `examples/safe_api.rs`。
 
 ### 以binary使用
 

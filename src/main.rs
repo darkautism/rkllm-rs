@@ -13,7 +13,7 @@ struct UserDataWithCallBack {
     userdata: String,
 }
 impl RkllmCallbackHandler for UserDataWithCallBack {
-    fn handle(&mut self, result: Option<RKLLMResult>, state: LLMCallState) {
+    fn handle(&mut self, result: Option<RKLLMResult<'_>>, state: LLMCallState) {
         match state {
             LLMCallState::Normal => {
                 print!("{}", result.unwrap().text);
@@ -172,13 +172,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         )
         .get_matches();
 
-    let mut param = RKLLMParam {
-        ..Default::default()
-    };
-    // These variable will pass into c so keep this ptr prevent crash.
+    let mut config = LLMConfig::default();
+    // Prompt cache path can be applied at init and later loaded explicitly.
     let mut cache_path = None;
-    let model_path;
-    let model_path_ptr;
     let mut modeltype = ModelType::Normal;
     #[cfg(feature = "online_config")]
     let mut atoken = None;
@@ -199,42 +195,40 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     if let Some(value) = matches.get_one::<String>("model") {
-        model_path = std::ffi::CString::new(value.clone()).unwrap();
-        model_path_ptr = model_path.as_ptr() as *const std::os::raw::c_char;
-        param.model_path = model_path_ptr;
+        config.model_path = Some(value.clone());
     }
     if let Some(value) = matches.get_one::<i32>("max_context_len") {
-        param.max_context_len = *value;
+        config.max_context_len = *value;
     }
     if let Some(value) = matches.get_one::<i32>("max_new_tokens") {
-        param.max_new_tokens = *value;
+        config.max_new_tokens = *value;
     }
     if let Some(value) = matches.get_one::<i32>("top_k") {
-        param.top_k = *value;
+        config.top_k = *value;
     }
     if let Some(value) = matches.get_one::<f32>("top_p") {
-        param.top_p = *value;
+        config.top_p = *value;
     }
     if let Some(value) = matches.get_one::<f32>("temperature") {
-        param.temperature = *value;
+        config.temperature = *value;
     }
     if let Some(value) = matches.get_one::<f32>("repeat_penalty") {
-        param.repeat_penalty = *value;
+        config.repeat_penalty = *value;
     }
     if let Some(value) = matches.get_one::<f32>("frequency_penalty") {
-        param.frequency_penalty = *value;
+        config.frequency_penalty = *value;
     }
     if let Some(value) = matches.get_one::<f32>("presence_penalty") {
-        param.presence_penalty = *value;
+        config.presence_penalty = *value;
     }
     if let Some(value) = matches.get_one::<String>("prompt_cache_path") {
         cache_path = Some(value);
     }
     if matches.get_flag("skip_special_token") {
-        param.skip_special_token = true;
+        config.skip_special_token = true;
     }
 
-    let llm_handle = rkllm_init(&mut param)?;
+    let llm_handle = init(config)?;
 
     let rkllm_infer_params = RKLLMInferParam {
         mode: RKLLMInferMode::InferGenerate,
@@ -295,7 +289,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             print!("\nRobot: \n");
             let _ = llm_handle.run(
-                RKLLMInput{
+                RKLLMInput {
                     input_type: RKLLMInputType::Prompt(input),
                     enable_thinking: false,
                     role: RKLLMInputRole::User,
@@ -309,6 +303,5 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let _ = llm_handle.destroy();
     Ok(())
 }
