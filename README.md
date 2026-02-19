@@ -6,6 +6,11 @@ This repository is now split into:
 - `rkllm-sys-rs`: raw bindgen-generated FFI bindings
 - `rkllm-rs`: safe Rust wrapper APIs
 
+Workspace layout (publish-ready):
+- root `Cargo.toml`: workspace only
+- `rkllm-sys-rs/`: low-level FFI crate
+- `rkllm-rs/`: safe wrapper crate
+
 ## README.md
 
 - en [English](README.md)
@@ -121,7 +126,7 @@ config.max_new_tokens = 128;
 let handle = init(config)?;
 ```
 
-For a full example, see `examples/safe_api.rs`.
+For a full example, see `rkllm-rs/examples/safe_api.rs`.
 
 ### Using as a Binary
 
@@ -217,7 +222,7 @@ let tools = vec![
 // ).expect("Failed to set function tools");
 ```
 
-For a complete example, please refer to `examples/function_call.rs`.
+For a complete example, please refer to `rkllm-rs/examples/function_call.rs`.
 
 ## Cross Attention (Experimental)
 
@@ -239,7 +244,7 @@ handle.with_cross_attn(&params, |h| {
 }).expect("Failed to set params");
 ```
 
-See `examples/cross_attn.rs` for details.
+See `rkllm-rs/examples/cross_attn.rs` for details.
 
 ## Online Tokenizer Config
 

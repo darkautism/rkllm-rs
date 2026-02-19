@@ -3,10 +3,12 @@ name = "rkllm-sys-rs"
 version = "0.1.0"
 edition = "2021"
 description = "Raw FFI bindings for librkllmrt"
-license-file = "../License"
+license-file = "License"
 homepage = "https://github.com/darkautism/rkllm-rs"
 documentation = "https://docs.rs/crate/rkllm-sys-rs/"
 build = "build.rs"
+
+[dependencies]
 
 [build-dependencies]
 bindgen = "0.72.1"

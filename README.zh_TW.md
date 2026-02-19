@@ -6,6 +6,11 @@
 - `rkllm-sys-rs`：原始 bindgen FFI 綁定
 - `rkllm-rs`：安全封裝層
 
+Workspace 目錄（可發佈）：
+- 根目錄 `Cargo.toml`：僅 workspace 設定
+- `rkllm-sys-rs/`：低階 FFI crate
+- `rkllm-rs/`：安全封裝 crate
+
 ## README.md
 
 - en [English](README.md)
@@ -115,7 +120,7 @@ config.max_new_tokens = 128;
 let handle = init(config)?;
 ```
 
-完整範例可參考 `examples/safe_api.rs`。
+完整範例可參考 `rkllm-rs/examples/safe_api.rs`。
 
 ### 以binary使用
 
