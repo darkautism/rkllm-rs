@@ -9,7 +9,7 @@
 `rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
 
 
-[![dependency status](https://deps.rs/repo/github/darkautism/sensevoice-rs/status.svg)](https://deps.rs/repo/github/darkautism/sensevoice-rs)
+[![dependency status](https://deps.rs/repo/github/darkautism/rkllm-rs/status.svg)](https://deps.rs/repo/github/darkautism/rkllm-rs)
 [![][github-stars-shield]][github-stars-link]
 [![][github-issues-shield]][github-issues-shield-link]
 [![][github-contributors-shield]][github-contributors-link]
