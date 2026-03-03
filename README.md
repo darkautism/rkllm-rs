@@ -1,20 +1,22 @@
-# rkllm-rs [![dependency status](https://deps.rs/repo/github/darkautism/rkllm-rs/status.svg)](https://deps.rs/repo/github/darkautism/rkllm-rs)
+<div align="center">
+<picture>
+   <source media="(prefers-color-scheme: dark)" srcset="images/header-dark.png">
+   <img alt="Logo for Rkllm for Rust" src="images/header-light.png">
+</picture>
+
+# RKLLM-RS
 
 `rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
 
-This repository is now split into:
-- `rkllm-sys-rs`: raw bindgen-generated FFI bindings
-- `rkllm-rs`: safe Rust wrapper APIs
 
-Workspace layout (publish-ready):
-- root `Cargo.toml`: workspace only
-- `rkllm-sys-rs/`: low-level FFI crate
-- `rkllm-rs/`: safe wrapper crate
+[![dependency status](https://deps.rs/repo/github/darkautism/sensevoice-rs/status.svg)](https://deps.rs/repo/github/darkautism/sensevoice-rs)
+[![][github-stars-shield]][github-stars-link]
+[![][github-issues-shield]][github-issues-shield-link]
+[![][github-contributors-shield]][github-contributors-link]
+[![][license-shield]][license-shield-link]
+[![][last-commit-shield]][last-commit-shield-link]
 
-## README.md
-
-- en [English](README.md)
-- zh_TW [繁體中文](README.zh_TW.md)
+</div>
 
 ## System Requirements
 
@@ -273,6 +275,18 @@ If this project has saved you time or helped you in your workflow, consider supp
 
 
 <!-- Link Definitions -->
+[release-shield]: https://img.shields.io/github/v/release/darkautism/rkllm-rs?color=369eff&labelColor=black&logo=github&style=flat-square
+[release-link]: https://github.com/darkautism/rkllm-rs/releases
+[license-shield]: https://img.shields.io/badge/license-apache%202.0-white?labelColor=black&style=flat-square
+[license-shield-link]: https://github.com/darkautism/rkllm-rs/blob/main/LICENSE
+[last-commit-shield]: https://img.shields.io/github/last-commit/darkautism/rkllm-rs?color=c4f042&labelColor=black&style=flat-square
+[last-commit-shield-link]: https://github.com/darkautism/rkllm-rs/commits/main
+[github-stars-shield]: https://img.shields.io/github/stars/darkautism/rkllm-rs?labelColor&style=flat-square&color=ffcb47
+[github-stars-link]: https://github.com/darkautism/rkllm-rs
+[github-issues-shield]: https://img.shields.io/github/issues/darkautism/rkllm-rs?labelColor=black&style=flat-square&color=ff80eb
+[github-issues-shield-link]: https://github.com/darkautism/rkllm-rs/issues
+[github-contributors-shield]: https://img.shields.io/github/contributors/darkautism/rkllm-rs?color=c4f042&labelColor=black&style=flat-square
+[github-contributors-link]: https://github.com/darkautism/rkllm-rs/graphs/contributors
 [ko-fi-shield]: https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white
 [ko-fi-link]: https://ko-fi.com/kautism
 [paypal-shield]: https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white
