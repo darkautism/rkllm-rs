@@ -9,7 +9,6 @@ pub mod prelude {
     use std::borrow::Cow;
     use std::ffi::{c_void, CStr, CString};
     use std::io;
-    use std::os::raw::c_char;
     use std::ptr::null_mut;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -120,18 +119,6 @@ pub mod prelude {
         pub extend_param: LLMExtendParam,
     }
 
-    fn c_string_ptr_to_option(ptr: *const c_char) -> Option<String> {
-        if ptr.is_null() {
-            None
-        } else {
-            Some(
-                unsafe { CStr::from_ptr(ptr) }
-                    .to_string_lossy()
-                    .into_owned(),
-            )
-        }
-    }
-
     impl Default for LLMConfig {
         fn default() -> Self {
             let raw = super::RKLLMParam::default();
@@ -151,9 +138,12 @@ pub mod prelude {
                 mirostat_eta: raw.mirostat_eta,
                 skip_special_token: raw.skip_special_token,
                 is_async: raw.is_async,
-                img_start: c_string_ptr_to_option(raw.img_start),
-                img_end: c_string_ptr_to_option(raw.img_end),
-                img_content: c_string_ptr_to_option(raw.img_content),
+                // RKLLM 1.3.0 moved multimodal tags from RKLLMParam into
+                // RKLLMMultiModalInput. Keep these fields for source compatibility;
+                // the current safe wrapper still rejects multimodal input.
+                img_start: None,
+                img_end: None,
+                img_content: None,
                 extend_param: raw.extend_param.into(),
             }
         }
@@ -301,9 +291,6 @@ pub mod prelude {
     #[derive(Debug, Default)]
     struct InitParamStrings {
         model_path: Option<CString>,
-        img_start: Option<CString>,
-        img_end: Option<CString>,
-        img_content: Option<CString>,
     }
 
     fn raw_param_from_config(
@@ -312,21 +299,6 @@ pub mod prelude {
         let strings = InitParamStrings {
             model_path: config
                 .model_path
-                .as_ref()
-                .map(|value| CString::new(value.as_str()))
-                .transpose()?,
-            img_start: config
-                .img_start
-                .as_ref()
-                .map(|value| CString::new(value.as_str()))
-                .transpose()?,
-            img_end: config
-                .img_end
-                .as_ref()
-                .map(|value| CString::new(value.as_str()))
-                .transpose()?,
-            img_content: config
-                .img_content
                 .as_ref()
                 .map(|value| CString::new(value.as_str()))
                 .transpose()?,
@@ -350,19 +322,8 @@ pub mod prelude {
             mirostat_tau: config.mirostat_tau,
             mirostat_eta: config.mirostat_eta,
             skip_special_token: config.skip_special_token,
+            ignore_eos_token: false,
             is_async: config.is_async,
-            img_start: strings
-                .img_start
-                .as_ref()
-                .map_or(std::ptr::null(), |value| value.as_ptr()),
-            img_end: strings
-                .img_end
-                .as_ref()
-                .map_or(std::ptr::null(), |value| value.as_ptr()),
-            img_content: strings
-                .img_content
-                .as_ref()
-                .map_or(std::ptr::null(), |value| value.as_ptr()),
             extend_param: (&config.extend_param).into(),
         };
 
@@ -446,7 +407,6 @@ pub mod prelude {
                 });
 
                 Some(Box::new(super::RKLLMInferParam {
-                    keep_history: infer_param.keep_history as i32,
                     mode: infer_param.mode.into(),
                     lora_params: lora_param
                         .as_mut()
@@ -454,6 +414,9 @@ pub mod prelude {
                     prompt_cache_params: prompt_cache_param
                         .as_mut()
                         .map_or(null_mut(), |param| param.as_mut() as *mut _),
+                    sampling_params: null_mut(),
+                    keep_history: infer_param.keep_history as i32,
+                    max_new_tokens: 0,
                 }))
             } else {
                 None
@@ -843,7 +806,7 @@ pub mod prelude {
             return 0;
         }
 
-        let instance_data = Arc::from_raw(userdata as *const InstanceData);
+        let instance_data = unsafe { Arc::from_raw(userdata as *const InstanceData) };
 
         let state = match state {
             0 => LLMCallState::Normal,
@@ -864,8 +827,6 @@ pub mod prelude {
             handler.handle(result, state);
         }
 
-        // The runtime owns one raw Arc pointer across callbacks; once we hit a terminal state
-        // we stop restoring that raw pointer so Rust can drop callback state automatically.
         if matches!(state, LLMCallState::Finish | LLMCallState::Error) {
             instance_data.finished.store(true, Ordering::Release);
         } else {
@@ -908,11 +869,16 @@ pub mod prelude {
         owned_param_strings: InitParamStrings,
     ) -> Result<LLMHandle, BoxError> {
         let mut handle = std::ptr::null_mut();
-        let callback: Option<
-            unsafe extern "C" fn(*mut super::RKLLMResult, *mut c_void, super::LLMCallState) -> i32,
-        > = Some(callback_passtrough);
+        let mut callback = super::RKLLMCallback {
+            result_callback: Some(callback_passtrough),
+            result_userdata: std::ptr::null_mut(),
+            tokenizer_callback: None,
+            tokenizer_userdata: std::ptr::null_mut(),
+            embed_callback: None,
+            embed_userdata: std::ptr::null_mut(),
+        };
 
-        let ret = unsafe { super::rkllm_init(&mut handle, param, callback) };
+        let ret = unsafe { super::rkllm_init(&mut handle, param, &mut callback) };
         if ret == 0 {
             Ok(LLMHandle {
                 handle,
