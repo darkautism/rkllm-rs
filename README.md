@@ -8,6 +8,7 @@
 
 `rkllm-rs` is a Rust FFI wrapper for the `librkllmrt` library.
 
+> **Upstream tracking:** `main` currently tracks RKLLM Runtime **release-v1.3.0** from `airockchip/rknn-llm`.
 
 [![dependency status](https://deps.rs/repo/github/darkautism/rkllm-rs/status.svg)](https://deps.rs/repo/github/darkautism/rkllm-rs)
 [![][github-stars-shield]][github-stars-link]
@@ -22,7 +23,7 @@
 
 Before using `rkllm-rs`, you need to install `librkllmrt`. Please download and install from the following link:
 
-[Download librkllmrt.so](https://github.com/airockchip/rknn-llm/raw/refs/heads/main/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so)
+[Download librkllmrt.so](https://github.com/airockchip/rknn-llm/raw/refs/tags/release-v1.3.0/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so)
 
 Please install `librkllmrt.so` in one of the common Linux library paths:
 
@@ -57,7 +58,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # If you already installed git-lfs, skip this step
 sudo apt install git-lfs
 
-sudo curl -L https://github.com/airockchip/rknn-llm/raw/refs/heads/main/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so -o /usr/lib/librkllmrt.so
+sudo curl -L https://github.com/airockchip/rknn-llm/raw/refs/tags/release-v1.3.0/rkllm-runtime/Linux/librkllm_api/aarch64/librkllmrt.so -o /usr/lib/librkllmrt.so
 cargo install rkllm-rs --features bin
 git clone https://huggingface.co/VRxiaojie/DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4
 rkllm ./DeepSeek-R1-Distill-Qwen-1.5B-RK3588S-RKLLM1.1.4/deepseek-r1-1.5B-rkllm1.1.4.rkllm --model_type=deepseek
@@ -84,6 +85,7 @@ Say something:
 
 | Rkllm Version | Rkllm-rs version |
 |---|---|
+| v1.3.0 | main (unreleased) |
 | v1.2.3 | 0.1.14 |
 | v1.2.1 | 0.1.10 |
 | v1.2.0 | 0.1.9 |
