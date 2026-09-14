@@ -1,6 +1,6 @@
 #ifndef _RKLLM_H_
 #define _RKLLM_H_
-#include <stdint.h>
+#include <cstdint>
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,17 +54,40 @@ typedef enum {
 } RKLLMInferMode;
 
 /**
+ * @brief Function pointer type for callback to get LLM embeddings
+ * @param userdata Pointer to user-defined data
+ * @param tokens Array of token IDs
+ * @param num_tokens Number of tokens in the tokens array
+ * @param embed Pointer to buffer that will store the embedding output
+ * @param len Length of the embedding buffer in bytes
+ * @return Returns 0 on success, non-zero value on failure
+ */
+typedef int (*LLMGetEmbedCallback)(void* userdata, int32_t* tokens, uint64_t num_tokens, void* embed, uint64_t len);
+
+/**
+ * @typedef LLMTokenizerCallback
+ * @brief Callback function to handle tokenization.
+ * @param userdata Pointer to user data for the callback.
+ * @param text Pointer to the input text.
+ * @param text_len Length of input text in bytes.
+ * @param tokens Pointer to the array of token IDs.
+ * @param n_tokens_max Max number of output tokens.
+ * @return Return token count (>=0) on success, negative value on error.
+ */
+typedef int (*LLMTokenizerCallback)(void* userdata, const char* text, int32_t text_len, int32_t* tokens, int32_t n_tokens_max);
+
+/**
  * @struct RKLLMExtendParam
  * @brief The extend parameters for configuring an LLM instance.
  */
 typedef struct {
-    int32_t      base_domain_id;        /**< base_domain_id */
-    int8_t       embed_flash;           /**< Indicates whether to query word embedding vectors from flash memory (1) or not (0). */
-    int8_t       enabled_cpus_num;      /**< Number of CPUs enabled for inference. */
-    uint32_t     enabled_cpus_mask;     /**< Bitmask indicating which CPUs to enable for inference. */
-    uint8_t      n_batch;               /**< Number of input samples processed concurrently in one forward pass. Set to >1 to enable batched inference. Default is 1. */
-    int8_t       use_cross_attn;        /**< Whether to enable cross attention (non-zero to enable, 0 to disable). */
-    uint8_t      reserved[104];         /**< reserved */
+    int32_t      base_domain_id;
+    int8_t       embed_flash;
+    int8_t       enabled_cpus_num;
+    uint32_t     enabled_cpus_mask;
+    uint8_t      n_batch;
+    int8_t       use_cross_attn;
+    uint8_t      reserved[104];
 } RKLLMExtendParam;
 
 /**
@@ -72,334 +95,170 @@ typedef struct {
  * @brief Defines the parameters for configuring an LLM instance.
  */
 typedef struct {
-    const char* model_path;         /**< Path to the model file. */
-    int32_t max_context_len;        /**< Maximum number of tokens in the context window. */
-    int32_t max_new_tokens;         /**< Maximum number of new tokens to generate. */
-    int32_t top_k;                  /**< Top-K sampling parameter for token generation. */
-    int32_t n_keep;                 /** number of kv cache to keep at the beginning when shifting context window */
-    float top_p;                    /**< Top-P (nucleus) sampling parameter. */
-    float temperature;              /**< Sampling temperature, affecting the randomness of token selection. */
-    float repeat_penalty;           /**< Penalty for repeating tokens in generation. */
-    float frequency_penalty;        /**< Penalizes frequent tokens during generation. */
-    float presence_penalty;         /**< Penalizes tokens based on their presence in the input. */
-    int32_t mirostat;               /**< Mirostat sampling strategy flag (0 to disable). */
-    float mirostat_tau;             /**< Tau parameter for Mirostat sampling. */
-    float mirostat_eta;             /**< Eta parameter for Mirostat sampling. */
-    bool skip_special_token;        /**< Whether to skip special tokens during generation. */
-    bool is_async;                  /**< Whether to run inference asynchronously. */
-    const char* img_start;          /**< Starting position of an image in multimodal input. */
-    const char* img_end;            /**< Ending position of an image in multimodal input. */
-    const char* img_content;        /**< Pointer to the image content. */
-    RKLLMExtendParam extend_param; /**< Extend parameters. */
+    const char* model_path;
+    int32_t max_context_len;
+    int32_t max_new_tokens;
+    int32_t top_k;
+    int32_t n_keep;
+    float top_p;
+    float temperature;
+    float repeat_penalty;
+    float frequency_penalty;
+    float presence_penalty;
+    int32_t mirostat;
+    float mirostat_tau;
+    float mirostat_eta;
+    bool skip_special_token;
+    bool ignore_eos_token;
+    bool is_async;
+    RKLLMExtendParam extend_param;
 } RKLLMParam;
 
-/**
- * @struct RKLLMLoraAdapter
- * @brief Defines parameters for a Lora adapter used in model fine-tuning.
- */
 typedef struct {
-    const char* lora_adapter_path; /**< Path to the Lora adapter file. */
-    const char* lora_adapter_name; /**< Name of the Lora adapter. */
-    float scale;                   /**< Scaling factor for applying the Lora adapter. */
+    const char* lora_adapter_path;
+    const char* lora_adapter_name;
+    float scale;
 } RKLLMLoraAdapter;
 
-/**
- * @struct RKLLMEmbedInput
- * @brief Represents an embedding input to the LLM.
- */
 typedef struct {
-    float* embed;      /**< Pointer to the embedding vector (of size n_tokens * n_embed). */
-    size_t n_tokens;   /**< Number of tokens represented in the embedding. */
+    float* embed;
+    size_t n_tokens;
 } RKLLMEmbedInput;
 
-/**
- * @struct RKLLMTokenInput
- * @brief Represents token input to the LLM.
- */
 typedef struct {
-    int32_t* input_ids; /**< Array of token IDs. */
-    size_t n_tokens;    /**< Number of tokens in the input. */
+    int32_t* input_ids;
+    size_t n_tokens;
 } RKLLMTokenInput;
 
-/**
- * @struct RKLLMMultiModalInput
- * @brief Represents multimodal input (e.g., text and image).
- */
 typedef struct {
-    char* prompt;           /**< Text prompt input. */
-    float* image_embed;     /**< Embedding of the images (of size n_image * n_image_tokens * image_embed_length). */
-    size_t n_image_tokens;  /**< Number of image_token. */
-    size_t n_image;         /**< Number of image. */
-    size_t image_width;     /**< Width of image. */
-    size_t image_height;    /**< Height of image. */
+    char* prompt;
+    struct {
+        float* image_embed;
+        size_t n_image_tokens;
+        size_t n_image;
+        const char* image_start;
+        const char* image_end;
+        const char* image_content;
+        size_t image_width;
+        size_t image_height;
+    } image;
+    struct {
+        float* video_embed;
+        size_t n_frame_tokens;
+        size_t n_frame_per_video;
+        size_t n_video;
+        const char* video_start;
+        const char* video_end;
+        const char* video_content;
+        size_t frame_width;
+        size_t frame_height;
+    } video;
 } RKLLMMultiModalInput;
 
-/**
- * @struct RKLLMInput
- * @brief Represents different types of input to the LLM via a union.
- */
 typedef struct {
-    const char* role;          /**< Message role: "user" (user input), "tool" (function result) */
-    bool enable_thinking;      /**< Controls whether "thinking mode" is enabled for the Qwen3 model. */
-    RKLLMInputType input_type; /**< Specifies the type of input provided (e.g., prompt, token, embed, multimodal). */
+    const char* role;
+    bool enable_thinking;
+    RKLLMInputType input_type;
     union {
-        const char* prompt_input;               /**< Text prompt input if input_type is RKLLM_INPUT_PROMPT. */
-        RKLLMEmbedInput embed_input;            /**< Embedding input if input_type is RKLLM_INPUT_EMBED. */
-        RKLLMTokenInput token_input;            /**< Token input if input_type is RKLLM_INPUT_TOKEN. */
-        RKLLMMultiModalInput multimodal_input;  /**< Multimodal input if input_type is RKLLM_INPUT_MULTIMODAL. */
+        const char* prompt_input;
+        RKLLMEmbedInput embed_input;
+        RKLLMTokenInput token_input;
+        RKLLMMultiModalInput multimodal_input;
     };
 } RKLLMInput;
 
-/**
- * @struct RKLLMLoraParam
- * @brief Structure defining parameters for Lora adapters.
- */
 typedef struct {
-    const char* lora_adapter_name; /**< Name of the Lora adapter. */
+    const char* lora_adapter_name;
 } RKLLMLoraParam;
 
-/**
- * @struct RKLLMPromptCacheParam
- * @brief Structure to define parameters for caching prompts.
- */
 typedef struct {
-    int save_prompt_cache;          /**< Flag to indicate whether to save the prompt cache (0 = don't save, 1 = save). */
-    const char* prompt_cache_path;  /**< Path to the prompt cache file. */
+    int save_prompt_cache;
+    const char* prompt_cache_path;
 } RKLLMPromptCacheParam;
 
-/**
- * @struct RKLLMCrossAttnParam
- * @brief Structure holding parameters for cross-attention inference.
- *
- * This structure is used when performing cross-attention in the decoder.
- * It provides the encoder output (key/value caches), position indices,
- * and attention mask.
- *
- * - `encoder_k_cache` must be stored in contiguous memory with layout:
- *   [num_layers][num_tokens][num_kv_heads][head_dim]
- * - `encoder_v_cache` must be stored in contiguous memory with layout:
- *   [num_layers][num_kv_heads][head_dim][num_tokens]
- */
 typedef struct {
-    float* encoder_k_cache;   /**< Pointer to encoder key cache (size: num_layers * num_tokens * num_kv_heads * head_dim). */
-    float* encoder_v_cache;   /**< Pointer to encoder value cache (size: num_layers * num_kv_heads * head_dim * num_tokens). */
-    float* encoder_mask;      /**< Pointer to encoder attention mask (array of size num_tokens). */
-    int32_t* encoder_pos;     /**< Pointer to encoder token positions (array of size num_tokens). */
-    int num_tokens;           /**< Number of tokens in the encoder sequence. */
+    float* encoder_k_cache;
+    float* encoder_v_cache;
+    float* encoder_mask;
+    int32_t* encoder_pos;
+    int num_tokens;
 } RKLLMCrossAttnParam;
 
-/**
- * @struct RKLLMInferParam
- * @brief Structure for defining parameters during inference.
- */
 typedef struct {
-    RKLLMInferMode mode;                        /**< Inference mode (e.g., generate or get last hidden layer). */
-    RKLLMLoraParam* lora_params;                /**< Pointer to Lora adapter parameters. */
-    RKLLMPromptCacheParam* prompt_cache_params; /**< Pointer to prompt cache parameters. */
-    int keep_history;                           /**Flag to determine history retention (1: keep history, 0: discard history).*/
+  int32_t top_k;
+  float top_p;
+  float temperature;
+  float repeat_penalty;
+  float frequency_penalty;
+  float presence_penalty;
+  int32_t mirostat;
+  float mirostat_tau;
+  float mirostat_eta;
+} RKLLMSamplingParam;
+
+typedef struct {
+    RKLLMInferMode mode;
+    RKLLMLoraParam* lora_params;
+    RKLLMPromptCacheParam* prompt_cache_params;
+    RKLLMSamplingParam* sampling_params;
+    int keep_history;
+    int32_t max_new_tokens;
 } RKLLMInferParam;
 
-/**
- * @struct RKLLMResultLastHiddenLayer
- * @brief Structure to hold the hidden states from the last layer.
- */
 typedef struct {
-    const float* hidden_states; /**< Pointer to the hidden states (of size num_tokens * embd_size). */
-    int embd_size;              /**< Size of the embedding vector. */
-    int num_tokens;             /**< Number of tokens for which hidden states are stored. */
+    const float* hidden_states;
+    int embd_size;
+    int num_tokens;
 } RKLLMResultLastHiddenLayer;
 
-/**
- * @struct RKLLMResultLogits
- * @brief Structure to hold the logits.
- */
 typedef struct {
-    const float* logits;        /**< Pointer to the logits (of size num_tokens * vocab_size). */
-    int vocab_size;             /**< Size of the vocab. */
-    int num_tokens;             /**< Number of tokens for which logits are stored. */
+    const float* logits;
+    int vocab_size;
+    int num_tokens;
 } RKLLMResultLogits;
 
-/**
- * @struct RKLLMPerfStat
- * @brief Structure to hold performance statistics for prefill and generate stages.
- */
 typedef struct {
-    float prefill_time_ms;      /**< Total time taken for the prefill stage in milliseconds. */
-    int prefill_tokens;         /**< Number of tokens processed during the prefill stage. */
-    float generate_time_ms;     /**< Total time taken for the generate stage in milliseconds. */
-    int generate_tokens;        /**< Number of tokens processed during the generate stage. */
-    float memory_usage_mb;      /**< VmHWM resident memory usage during inference, in megabytes. */
+    float prefill_time_ms;
+    int prefill_tokens;
+    float generate_time_ms;
+    int generate_tokens;
+    float memory_usage_mb;
 } RKLLMPerfStat;
 
-/**
- * @struct RKLLMResult
- * @brief Structure to represent the result of LLM inference.
- */
 typedef struct {
-    const char* text;                             /**< Generated text result. */
-    int32_t token_id;                             /**< ID of the generated token. */
-    RKLLMResultLastHiddenLayer last_hidden_layer; /**< Hidden states of the last layer (if requested). */
-    RKLLMResultLogits logits;                     /**< Model output logits. */
-    RKLLMPerfStat perf;                          /**< Pointer to performance statistics (prefill and generate). */
+    const char* text;
+    int32_t token_id;
+    RKLLMResultLastHiddenLayer last_hidden_layer;
+    RKLLMResultLogits logits;
+    RKLLMPerfStat perf;
 } RKLLMResult;
 
-/**
- * @typedef LLMResultCallback
- * @brief Callback function to handle LLM results.
- * @param result Pointer to the LLM result.
- * @param userdata Pointer to user data for the callback.
- * @param state State of the LLM call (e.g., finished, error).
- * @return int Return value indicating the handling status:
- *         - 0: Continue inference normally.
- *         - 1: Pause inference. If the user wants to modify or intervene in the result (e.g., editing output, injecting new prompt),
- *              return 1 to suspend the current inference. Later, call `rkllm_run` with updated content to resume inference.
- */
 typedef int(*LLMResultCallback)(RKLLMResult* result, void* userdata, LLMCallState state);
 
-/**
- * @brief Creates a default RKLLMParam structure with preset values.
- * @return A default RKLLMParam structure.
- */
+typedef struct
+{
+    LLMResultCallback result_callback;
+    void*             result_userdata;
+    LLMTokenizerCallback tokenizer_callback;
+    void*                tokenizer_userdata;
+    LLMGetEmbedCallback embed_callback;
+    void*               embed_userdata;
+} RKLLMCallback;
+
 RKLLMParam rkllm_createDefaultParam();
-
-/**
- * @brief Initializes the LLM with the given parameters.
- * @param handle Pointer to the LLM handle.
- * @param param Configuration parameters for the LLM.
- * @param callback Callback function to handle LLM results.
- * @return Status code (0 for success, non-zero for failure).
- */
-int rkllm_init(LLMHandle* handle, RKLLMParam* param, LLMResultCallback callback);
-
-/**
- * @brief Loads a Lora adapter into the LLM.
- * @param handle LLM handle.
- * @param lora_adapter Pointer to the Lora adapter structure.
- * @return Status code (0 for success, non-zero for failure).
- */
+int rkllm_init(LLMHandle* handle, RKLLMParam* param, RKLLMCallback* callback);
 int rkllm_load_lora(LLMHandle handle, RKLLMLoraAdapter* lora_adapter);
-
-/**
- * @brief Loads a prompt cache from a file.
- * @param handle LLM handle.
- * @param prompt_cache_path Path to the prompt cache file.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_load_prompt_cache(LLMHandle handle, const char* prompt_cache_path);
-
-/**
- * @brief Releases the prompt cache from memory.
- * @param handle LLM handle.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_release_prompt_cache(LLMHandle handle);
-
-/**
- * @brief Destroys the LLM instance and releases resources.
- * @param handle LLM handle.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_destroy(LLMHandle handle);
-
-/**
- * @brief Runs an LLM inference task synchronously.
- * @param handle LLM handle.
- * @param rkllm_input Input data for the LLM.
- * @param rkllm_infer_params Parameters for the inference task.
- * @param userdata Pointer to user data for the callback.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_run(LLMHandle handle, RKLLMInput* rkllm_input, RKLLMInferParam* rkllm_infer_params, void* userdata);
-
-/**
- * @brief Runs an LLM inference task asynchronously.
- * @param handle LLM handle.
- * @param rkllm_input Input data for the LLM.
- * @param rkllm_infer_params Parameters for the inference task.
- * @param userdata Pointer to user data for the callback.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_run_async(LLMHandle handle, RKLLMInput* rkllm_input, RKLLMInferParam* rkllm_infer_params, void* userdata);
-
-/**
- * @brief Aborts an ongoing LLM task.
- * @param handle LLM handle.
- * @return Status code (0 for success, non-zero for failure).
- */
 int rkllm_abort(LLMHandle handle);
-
-/**
- * @brief Checks if an LLM task is currently running.
- * @param handle LLM handle.
- * @return Status code (0 if a task is running, non-zero for otherwise).
- */
 int rkllm_is_running(LLMHandle handle);
-
-/**
- * @brief Clear the key-value cache for a given LLM handle.
- * 
- * This function is used to clear part or all of the KV cache.
- *
- * @param handle LLM handle.
- * @param keep_system_prompt Flag indicating whether to retain the system prompt in the cache (1 to retain, 0 to clear).
- *                           This flag is ignored if a specific range [start_pos, end_pos) is provided.
- * @param start_pos Array of start positions (inclusive) of the KV cache ranges to clear, one per batch.
- * @param end_pos   Array of end positions (exclusive) of the KV cache ranges to clear, one per batch.
- *                  If both start_pos and end_pos are set to nullptr, the entire cache will be cleared and keep_system_prompt will take effect,
- *                  If start_pos[i] < end_pos[i], only the specified range will be cleared, and keep_system_prompt will be ignored.
- * @note: start_pos or end_pos is only valid when keep_history == 0 and the generation has been paused by returning 1 in the callback
- * @return Status code (0 if cache was cleared successfully, non-zero otherwise).
- */ 
 int rkllm_clear_kv_cache(LLMHandle handle, int keep_system_prompt, int* start_pos, int* end_pos);
-
-/**
- * @brief Get the current size of the key-value cache for a given LLM handle.
- *
- * This function returns the total number of positions currently stored in the model's KV cache.
- * 
- * @param handle LLM handle.
- * @param cache_sizes Pointer to an array where the per-batch cache sizes will be stored.
- *                    The array must be preallocated with space for `n_batch` elements.
- */
 int rkllm_get_kv_cache_size(LLMHandle handle, int* cache_sizes);
-
-/**  
- * @brief Sets the chat template for the LLM, including system prompt, prefix, and postfix.  
- *  
- * This function allows you to customize the chat template by providing a system prompt, a prompt prefix, and a prompt postfix.  
- * The system prompt is typically used to define the behavior or context of the language model,  
- * while the prefix and postfix are used to format the user input and output respectively.  
- *  
- * @param handle LLM handle.  
- * @param system_prompt The system prompt that defines the context or behavior of the language model.  
- * @param prompt_prefix The prefix added before the user input in the chat.  
- * @param prompt_postfix The postfix added after the user input in the chat.  
- *  
- * @return Status code (0 if the template was set successfully, non-zero for errors).  
- */
 int rkllm_set_chat_template(LLMHandle handle, const char* system_prompt, const char* prompt_prefix, const char* prompt_postfix);
-
-/**
- * @brief Sets the function calling configuration for the LLM, including system prompt, tool definitions, and tool response token.
- *
- * @param handle LLM handle.
- * @param system_prompt The system prompt that defines the context or behavior of the language model.
- * @param tools A JSON-formatted string that defines the available functions, including their names, descriptions, and parameters.
- * @param tool_response_str A unique tag used to identify function call results within a conversation. It acts as the marker tag, 
- *                          allowing tokenizer to recognize tool outputs separately from normal dialogue turns.
- * @return Status code (0 if the configuration was set successfully, non-zero for errors).
- */
 int rkllm_set_function_tools(LLMHandle handle, const char* system_prompt, const char* tools, const char* tool_response_str);
-
-/**
- * @brief Sets the cross-attention parameters for the LLM decoder.
- *
- * @param handle LLM handle.
- * @param cross_attn_params Pointer to the structure containing encoder-related input data 
- *                          used for cross-attention (see RKLLMCrossAttnParam for details).
- *
- * @return Status code (0 if the parameters were set successfully, non-zero for errors).
- */
 int rkllm_set_cross_attn_params(LLMHandle handle, RKLLMCrossAttnParam* cross_attn_params);
 
 #ifdef __cplusplus
