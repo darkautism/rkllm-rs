@@ -13,6 +13,10 @@ fn main() {
     // to bindgen, and lets you build up options for
     // the resulting bindings.
     let bindings = bindgen::Builder::default()
+        // RKLLM 1.3.0's public header uses C++ standard headers such as
+        // <cstdint>, while still exporting its ABI through extern "C".
+        .clang_arg("-x")
+        .clang_arg("c++")
         // The input header we would like to generate
         // bindings for.
         .header("wrapper.h")
