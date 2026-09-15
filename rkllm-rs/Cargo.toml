@@ -7,6 +7,9 @@ license-file = "License"
 homepage = "https://github.com/darkautism/rkllm-rs"
 documentation = "https://docs.rs/crate/rkllm-rs/"
 
+[lib]
+path = "src/lib_next.rs"
+
 [features]
 default = []
 bin = ["clap"]
